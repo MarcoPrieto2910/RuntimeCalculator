@@ -1,0 +1,30 @@
+# Build output
+bin/
+obj/
+
+# Rider / JetBrains
+.idea/
+
+# User-specific IDE settings
+*.user
+*.suo
+*.DotSettings.user
+
+# Visual Studio
+.vs/
+
+# Test results
+TestResults/
+
+# Coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# Generated runtime files
+runtime.csv
+collector.log
+
+# OS files
+.DS_Store
+Thumbs.db

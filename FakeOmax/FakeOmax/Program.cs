@@ -1,27 +1,59 @@
-var builder = WebApplication.CreateBuilder(args);
+using System.Net;
+using System.Net.Sockets;
 
-var app = builder.Build();
+const int port = 5000;
+const string filePath = "stream-test2.txt";
 
-app.MapGet("/probe", async (HttpContext context) =>
+Console.WriteLine("Fake OMAX Server");
+Console.WriteLine("----------------");
+Console.WriteLine($"Starting server on port {port}...");
+
+TcpListener listener = new TcpListener(IPAddress.Loopback, port);
+
+listener.Start();
+
+Console.WriteLine("Server is listening.");
+Console.WriteLine("Waiting for collector connection...");
+Console.WriteLine();
+
+while (true)
 {
-    context.Response.ContentType = "text/plain";
+    TcpClient client = await listener.AcceptTcpClientAsync();
+    Console.WriteLine($"Collector connected: {client.Client.RemoteEndPoint}");
+    _ = SendStreamAsync(client);
+}
 
-    while (true)
+
+static async Task SendStreamAsync(TcpClient client)
+{
+    try
     {
-        using var reader = new StreamReader("stream-test2.txt");
+        using NetworkStream stream = client.GetStream();
+        using StreamWriter writer = new StreamWriter(stream);
 
-        string? line;
-        while ((line = await reader.ReadLineAsync()) != null)
+        writer.AutoFlush = true;
+
+        while (true)
         {
-            await context.Response.WriteAsync(line);
-            await context.Response.WriteAsync("\n");
-            await context.Response.Body.FlushAsync();
-        
-            await Task.Delay(10);
-        }
-    
-        await Task.Delay(10000);
-    }
-});
+            Console.WriteLine("Sending stream-test2.txt...");
+            using StreamReader reader = new StreamReader("stream-test2.txt");
 
-app.Run("http://localhost:5000");
+            string? line;
+
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                await writer.WriteLineAsync(line);
+                Console.WriteLine($"Sent: {line}");
+                await Task.Delay(10);
+            }
+
+            Console.WriteLine("Finished sending file.");
+            Console.WriteLine("Waiting 10 seconds...");
+            await Task.Delay(10000);
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Client connection ended: {ex.Message}");
+    }
+}

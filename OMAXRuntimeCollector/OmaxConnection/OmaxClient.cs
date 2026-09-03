@@ -1,4 +1,5 @@
-﻿using OMAXRuntimeCollector.Runtime;
+﻿using System.Net.Sockets;
+using OMAXRuntimeCollector.Runtime;
 
 namespace OMAXRuntimeCollector.OmaxConnection;
 
@@ -8,32 +9,22 @@ public class OmaxClient
     private readonly RuntimeTracker _runtimeTracker;
     private readonly AppLogger _logger;
 
-    private readonly HttpClient _httpClient;
-
 
     public OmaxClient(OmaxConnectionSettings settings, RuntimeTracker runtimeTracker, AppLogger logger)
     {
         _settings = settings;
         _runtimeTracker = runtimeTracker;
         _logger = logger;
-
-        _httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
     }
 
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        string url =
-            $"http://{_settings.Host}:" +
-            $"{_settings.Port}" +
-            $"{_settings.Endpoint}";
-
-
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                await ConnectAndReadAsync(url, cancellationToken);
+                await ConnectAndReadAsync(cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -54,20 +45,15 @@ public class OmaxClient
             // -------------------------------------------------
 
             _runtimeTracker.HandleConnectionLoss();
-
-
-            _logger.Warning(
-                $"Connection to OMAX lost. " +
-                $"Retrying in " +
-                $"{_settings.ReconnectDelaySeconds} seconds.");
+            _logger.Warning($"Connection to OMAX lost. " +
+                            $"Retrying in " +
+                            $"{_settings.ReconnectDelaySeconds} seconds.");
 
 
             try
             {
                 await Task.Delay(
-                    TimeSpan.FromSeconds(
-                        _settings.ReconnectDelaySeconds),
-                    cancellationToken);
+                    TimeSpan.FromSeconds(_settings.ReconnectDelaySeconds), cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -77,29 +63,29 @@ public class OmaxClient
     }
 
 
-    private async Task ConnectAndReadAsync(string url, CancellationToken cancellationToken)
+    private async Task ConnectAndReadAsync(CancellationToken cancellationToken)
     {
-        _logger.Info($"Connecting to OMAX at {url}");
+        _logger.Info(
+            $"Connecting to OMAX at " +
+            $"{_settings.Host}:{_settings.Port}");
 
 
-        using HttpResponseMessage response =
-            await _httpClient.GetAsync(
-                url,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
+        using TcpClient client = new();
 
 
-        response.EnsureSuccessStatusCode();
+        // -----------------------------------------------------
+        // Connect directly to the TCP port.
+        // -----------------------------------------------------
 
-
+        await client.ConnectAsync(_settings.Host, _settings.Port, cancellationToken);
         _logger.Info("Connected to OMAX.");
 
 
-        await using Stream stream =
-            await response.Content.ReadAsStreamAsync(
-                cancellationToken);
+        // -----------------------------------------------------
+        // Get the raw TCP stream.
+        // -----------------------------------------------------
 
-
+        await using NetworkStream stream = client.GetStream();
         using StreamReader reader = new(stream);
 
 
@@ -130,7 +116,7 @@ public class OmaxClient
 
 
             // -------------------------------------------------
-            // null means the server closed the stream.
+            // null means the server closed the connection.
             // -------------------------------------------------
 
             if (line == null)

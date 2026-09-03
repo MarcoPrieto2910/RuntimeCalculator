@@ -12,7 +12,6 @@ public class OmaxConnectionSettings
 {
     public string Host { get; set; } = "localhost";
     public int Port { get; set; } = 5000;
-    public string Endpoint { get; set; } = "/probe";
     public int ReconnectDelaySeconds { get; set; } = 5;
 }
 

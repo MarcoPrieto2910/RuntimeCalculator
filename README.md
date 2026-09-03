@@ -19,7 +19,7 @@ The application is designed to run continuously in the background and automatica
 
 ## Features
 
-* Connects to an OMAX machine through its HTTP endpoint.
+* Connects to an OMAX machine through its HTTP/TCP endpoint.
 * Monitors machine execution state.
 * Detects `ACTIVE` and `STOPPED` execution events.
 * Calculates runtime without relying on a dedicated runtime value from the machine.
@@ -98,7 +98,7 @@ This makes it possible to test the collector without requiring access to the phy
 
 * Windows
 * .NET 8 SDK
-* Access to an OMAX machine running the required HTTP endpoint
+* Access to an OMAX machine running the required HTTP/TCP endpoint
 
 For development and testing, an OMAX machine is not required because the `FakeOmax` project can simulate the machine connection.
 
@@ -113,7 +113,6 @@ Example:
   "Omax": {
     "Host": "localhost",
     "Port": 5000,
-    "Endpoint": "/probe",
     "ReconnectDelaySeconds": 5
   },
   "Storage": {
@@ -129,7 +128,6 @@ Example:
 | ----------------------- | ---------------------------------------------- |
 | `Host`                  | Hostname or IP address of the OMAX computer    |
 | `Port`                  | Port used by the OMAX endpoint                 |
-| `Endpoint`              | HTTP endpoint providing the machine log stream |
 | `ReconnectDelaySeconds` | Delay before attempting to reconnect           |
 
 ### Storage settings

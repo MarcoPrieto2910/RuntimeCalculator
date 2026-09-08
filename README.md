@@ -23,14 +23,14 @@ The application is designed to run continuously in the background as a Windows S
 
 * Connects directly to the OMAX machine's TCP endpoint and continuously reads its machine log stream.
 * Monitors machine execution state.
-* Detects `ACTIVE` and `STOPPED` execution events.
+* Detects `ACTIVE` and ending execution events.
 * Calculates runtime without relying on a dedicated runtime value from the machine.
 * Separates runtime into morning and afternoon periods.
 * Handles executions crossing:
 
-  * 05:00
-  * 14:00
-  * Midnight
+    * 05:00
+    * 14:00
+    * Midnight
 * Automatically saves runtime data to CSV.
 * Logs application activity and connection problems.
 * Automatically attempts to reconnect when the OMAX endpoint becomes unavailable.
@@ -40,6 +40,7 @@ The application is designed to run continuously in the background as a Windows S
 * Can automatically restart after an unexpected process failure.
 * Includes automated unit tests for runtime calculation, CSV writing, execution state tracking, and time boundaries.
 * Includes a fake OMAX server for local development and testing.
+* Includes PowerShell scripts for publishing, installing, and uninstalling the Windows Service.
 
 ## Repository Structure
 
@@ -55,6 +56,11 @@ RuntimeCollector/
 │   │   ├── RuntimeCalculator.cs
 │   │   ├── RuntimeCsvWriter.cs
 │   │   └── RuntimeTracker.cs
+│   │
+│   ├── scripts/
+│   │   ├── publish.ps1
+│   │   ├── install-service.ps1
+│   │   └── uninstall-service.ps1
 │   │
 │   ├── AppLogger.cs
 │   ├── Program.cs
@@ -105,7 +111,7 @@ The tests cover:
 
 A lightweight local server used to simulate the OMAX endpoint during development.
 
-Instead of connecting to a real machine, it reads test data from text files and exposes it through the same HTTP endpoint expected by the collector.
+Instead of connecting to a real machine, it reads test data from text files and exposes it through a TCP endpoint.
 
 This makes it possible to test the collector without requiring access to the physical machine.
 
@@ -113,7 +119,7 @@ This makes it possible to test the collector without requiring access to the phy
 
 * Windows
 * .NET 9 SDK
-* Access to an OMAX machine running the required HTTP/TCP endpoint
+* Access to an OMAX machine running the required TCP endpoint
 
 For development and testing, an OMAX machine is not required because the `FakeOmax` project can simulate the machine connection.
 
@@ -145,7 +151,7 @@ Example:
 | Setting                 | Description                                 |
 | ----------------------- | ------------------------------------------- |
 | `Host`                  | Hostname or IP address of the OMAX computer |
-| `Port`                  | Port used by the OMAX endpoint              |
+| `Port`                  | Port used by the OMAX TCP endpoint          |
 | `ReconnectDelaySeconds` | Delay before attempting to reconnect        |
 
 ### Storage settings
@@ -209,7 +215,7 @@ Then start the collector:
 dotnet run --project OMAXRuntimeCollector
 ```
 
-The fake server reads one of the provided test streams and exposes the simulated events through the configured HTTP endpoint.
+The fake server reads one of the provided test streams and exposes the simulated events through its configured TCP endpoint.
 
 This allows the runtime tracking behavior to be tested without connecting to the physical machine.
 
@@ -233,6 +239,8 @@ The test suite verifies:
 * CSV creation and updates
 * Execution state transitions
 * Runtime processing at time boundaries
+
+All automated tests should pass before publishing a new version of the application.
 
 ## Building the Executable
 
@@ -260,21 +268,148 @@ For example:
 C:\OMAXRuntimeCollector
 ```
 
-## Windows Service Deployment
+## PowerShell Scripts
 
-The collector can be installed as a Windows Service so that it runs automatically in the background and starts with Windows.
+The project includes PowerShell scripts to simplify publishing and Windows Service deployment.
 
-The following steps describe the current deployment procedure.
+The scripts are located in:
 
-### 1. Publish the application
+```text
+OMAXRuntimeCollector/scripts/
+```
 
-From the repository:
+They are:
+
+| Script                  | Purpose                                                              |
+| ----------------------- | -------------------------------------------------------------------- |
+| `publish.ps1`           | Publishes the application as a self-contained `win-x86` executable   |
+| `install-service.ps1`   | Creates, configures, and starts the Windows Service                  |
+| `uninstall-service.ps1` | Stops and removes the Windows Service and its installation directory |
+
+The scripts are designed so that the deployment location is provided when needed rather than being tied to a specific development machine or Rider publish directory.
+
+### Publish
+
+From the `scripts` directory, run:
+
+```powershell
+.\publish.ps1
+```
+
+The script publishes the application using:
 
 ```powershell
 dotnet publish -c Release -r win-x86 --self-contained true
 ```
 
-Copy the contents of the resulting `publish` directory to the target installation directory.
+The resulting files are placed in:
+
+```text
+OMAXRuntimeCollector/bin/Release/net9.0/win-x86/publish/
+```
+
+The published files can then be copied to the desired installation directory on the target computer.
+
+For example:
+
+```text
+C:\OMAXRuntimeCollector
+```
+
+### Install the Windows Service
+
+After copying the published files to the target installation directory, open **PowerShell as Administrator**.
+
+Run:
+
+```powershell
+.\install-service.ps1 -InstallPath "C:\OMAXRuntimeCollector"
+```
+
+The installation script:
+
+1. Verifies that it is running with administrator privileges.
+2. Verifies that the installation directory exists.
+3. Verifies that `OMAXRuntimeCollector.exe` exists.
+4. Stops and removes an existing installation of the service if necessary.
+5. Creates the Windows Service.
+6. Configures automatic startup.
+7. Configures Windows Service recovery.
+8. Starts the service.
+9. Displays the resulting service status.
+
+The service is created with:
+
+* **Service name:** `OMAXRuntimeCollector`
+* **Display name:** `OMAX Runtime Collector`
+* **Startup type:** Automatic
+
+The script also configures three automatic restart attempts with a five-second delay:
+
+```text
+First failure  → restart after 5 seconds
+Second failure → restart after 5 seconds
+Third failure  → restart after 5 seconds
+```
+
+The failure count is reset after 24 hours.
+
+### Uninstall the Windows Service
+
+To remove the service and its installation files, open **PowerShell as Administrator** and run:
+
+```powershell
+.\uninstall-service.ps1 -InstallPath "C:\OMAXRuntimeCollector"
+```
+
+The uninstall script:
+
+1. Verifies administrator privileges.
+2. Stops the service if it is running.
+3. Removes the Windows Service.
+4. Removes the specified installation directory.
+
+The script does not affect the project's source files or published files stored elsewhere.
+
+### Script Requirements
+
+The installation and uninstallation scripts require an **elevated PowerShell session** because creating, removing, and configuring Windows Services requires administrator privileges.
+
+The publish script does not require administrator privileges when publishing from a normal development environment.
+
+## Windows Service Deployment
+
+The collector can be installed as a Windows Service so that it runs automatically in the background and starts with Windows.
+
+The recommended deployment process is:
+
+### 1. Run the tests
+
+From the repository root:
+
+```powershell
+dotnet test
+```
+
+Make sure all tests pass before publishing.
+
+### 2. Publish the application
+
+From the `OMAXRuntimeCollector/scripts` directory:
+
+```powershell
+.\publish.ps1
+```
+
+### 3. Copy the published files
+
+Copy the contents of:
+
+```text
+OMAXRuntimeCollector/bin/Release/net9.0/win-x86/publish/
+```
+
+to the target installation directory.
 
 For example:
 
@@ -291,37 +426,31 @@ appsettings.json
 
 along with the other published application files.
 
-### 2. Open an elevated PowerShell
+### 4. Configure the application
 
-Service installation requires administrator privileges.
+Before starting the service, verify `appsettings.json`.
 
-Open **PowerShell as Administrator**.
+For a production installation, `TestMode` should normally be:
 
-### 3. Create the Windows Service
-
-Run:
-
-```powershell
-sc.exe create OMAXRuntimeCollector binpath= "C:\OMAXRuntimeCollector\OMAXRuntimeCollector.exe" start= auto displayname= "OMAX Runtime Collector"
+```json
+"TestMode": false
 ```
 
-This creates the service with:
+Also verify that the configured OMAX host, port, CSV path, and log path are correct for the target environment.
 
-* **Service name:** `OMAXRuntimeCollector`
-* **Display name:** `OMAX Runtime Collector`
-* **Startup type:** Automatic
+### 5. Install the service
 
-The `start= auto` option tells Windows to automatically start the service when the computer starts.
-
-### 4. Start the service
-
-The service can be started from **Services (`services.msc`)** or from PowerShell:
+Open **PowerShell as Administrator** and run:
 
 ```powershell
-sc.exe start OMAXRuntimeCollector
+.\install-service.ps1 -InstallPath "C:\OMAXRuntimeCollector"
 ```
 
-The service should appear as:
+The script creates and starts the service automatically.
+
+### 6. Verify the service
+
+The service should appear in **Services (`services.msc`)** as:
 
 ```text
 OMAX Runtime Collector
@@ -333,38 +462,10 @@ with a status of:
 Running
 ```
 
-### 5. Configure service recovery
-
-Windows can automatically restart the collector if the application process unexpectedly fails.
-
-Configure three restart attempts with a five-second delay:
+The service can also be checked from PowerShell:
 
 ```powershell
-sc.exe failure OMAXRuntimeCollector reset= 86400 actions= restart/5000/restart/5000/restart/5000
-```
-
-This configures:
-
-* First failure → restart after 5 seconds
-* Second failure → restart after 5 seconds
-* Third and subsequent configured failure actions → restart after 5 seconds
-* Failure count reset after 24 hours
-
-### 6. Verify the recovery configuration
-
-Run:
-
-```powershell
-sc.exe qfailure OMAXRuntimeCollector
-```
-
-The expected configuration should include:
-
-```text
-RESET_PERIOD (in seconds)    : 86400
-FAILURE_ACTIONS              : RESTART -- Delay = 5000 milliseconds.
-                               RESTART -- Delay = 5000 milliseconds.
-                               RESTART -- Delay = 5000 milliseconds.
+Get-Service OMAXRuntimeCollector
 ```
 
 ### 7. Verify automatic startup
@@ -430,19 +531,20 @@ Alternatively, the service can be stopped from `services.msc`.
 
 ### 10. Remove the service
 
-If the service needs to be removed from the computer, first stop it:
+The recommended way to remove the service and its installation directory is:
+
+```powershell
+.\uninstall-service.ps1 -InstallPath "C:\OMAXRuntimeCollector"
+```
+
+Alternatively, the service can be removed manually:
 
 ```powershell
 sc.exe stop OMAXRuntimeCollector
-```
-
-Then delete it:
-
-```powershell
 sc.exe delete OMAXRuntimeCollector
 ```
 
-The application files in the installation directory are not automatically deleted.
+The manual `sc.exe` commands remove the service but do not automatically delete the application files.
 
 ## Runtime Output
 
@@ -562,6 +664,8 @@ The following have been validated:
 * Running as a Windows Service
 * Automatic service startup after Windows reboot
 * Automatic service recovery after an unexpected collector process failure
+* Automated unit test suite
+* PowerShell publishing, installation, and uninstallation scripts
 
 The next stage is to validate the collector on the real OMAX machine under normal production conditions.
 

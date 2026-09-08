@@ -9,7 +9,6 @@ public class RuntimeCsvWriterTests : IDisposable
 {
     private readonly string _testDirectory;
     private readonly string _csvPath;
-    private readonly string _logPath;
     private readonly AppLogger _logger;
 
     public RuntimeCsvWriterTests()
@@ -20,8 +19,8 @@ public class RuntimeCsvWriterTests : IDisposable
         _testDirectory = Path.Combine(Path.GetTempPath(), "OMAXRuntimeCollectorTests", Guid.NewGuid().ToString());
         Directory.CreateDirectory(_testDirectory);
         _csvPath = Path.Combine(_testDirectory, "runtime.csv");
-        _logPath = Path.Combine(_testDirectory, "test.log");
-        _logger = new AppLogger(_logPath);
+        var logPath = Path.Combine(_testDirectory, "test.log");
+        _logger = new AppLogger(logPath);
     }
 
 

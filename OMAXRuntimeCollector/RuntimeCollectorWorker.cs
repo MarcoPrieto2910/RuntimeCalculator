@@ -54,9 +54,16 @@ public class RuntimeCollectorWorker : BackgroundService
         // =============================================================
 
         AppLogger logger = new(settings.Storage.LogPath, settings.TestMode);
-
+        
         logger.Info("OMAX Runtime Collector");
-        logger.Info("");
+        logger.Info("========================================");
+        logger.Info("Startup diagnostics");
+        logger.Info("----------------------------------------");
+        logger.Info($"Machine ID: {settings.MachineId}");
+        logger.Info($"OMAX Host: {settings.Omax.Host}");
+        logger.Info($"OMAX Port: {settings.Omax.Port}");
+        logger.Info($"CSV Path: { Environment.ExpandEnvironmentVariables(settings.Storage.CsvPath) }");
+        logger.Info($"Log Path: { Environment.ExpandEnvironmentVariables(settings.Storage.LogPath) }");
         logger.Info("========================================");
         logger.Info("OMAX Runtime Collector starting.");
 

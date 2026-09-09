@@ -48,6 +48,25 @@ public class RuntimeCollectorWorker : BackgroundService
             Console.WriteLine("ERROR: Configuration is empty.");
             return;
         }
+        
+        // =============================================================
+        // VALIDATE CONFIGURATION
+        // =============================================================
+
+        List<string> configurationErrors = ConfigurationValidator.Validate(settings);
+
+        if (configurationErrors.Count > 0)
+        {
+            Console.WriteLine("ERROR: Configuration validation failed.");
+            Console.WriteLine();
+
+            foreach (string error in configurationErrors)
+            {
+                Console.WriteLine($"- {error}");
+            }
+
+            return;
+        }
 
 
         // =============================================================

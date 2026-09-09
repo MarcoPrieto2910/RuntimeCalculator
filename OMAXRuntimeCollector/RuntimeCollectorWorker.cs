@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Reflection;
+using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using OMAXRuntimeCollector.OmaxConnection;
 using OMAXRuntimeCollector.Runtime;
@@ -54,11 +55,13 @@ public class RuntimeCollectorWorker : BackgroundService
         // =============================================================
 
         AppLogger logger = new(settings.Storage.LogPath, settings.TestMode);
+        Version? applicationVersion = Assembly.GetExecutingAssembly().GetName().Version;
         
         logger.Info("OMAX Runtime Collector");
         logger.Info("========================================");
         logger.Info("Startup diagnostics");
         logger.Info("----------------------------------------");
+        logger.Info($"Version: {applicationVersion}");
         logger.Info($"Machine ID: {settings.MachineId}");
         logger.Info($"OMAX Host: {settings.Omax.Host}");
         logger.Info($"OMAX Port: {settings.Omax.Port}");

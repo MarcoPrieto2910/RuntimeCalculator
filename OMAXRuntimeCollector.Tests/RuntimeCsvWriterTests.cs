@@ -51,7 +51,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveMorningRuntime_CreatesCsvFile()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger);
+        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01"); 
         DateTime date = new DateTime(2026, 8, 25);
         TimeSpan morningRuntime = TimeSpan.FromHours(3);
 
@@ -60,8 +60,8 @@ public class RuntimeCsvWriterTests : IDisposable
         Assert.True(File.Exists(_csvPath));
         string[] lines = File.ReadAllLines(_csvPath);
         Assert.Equal(2, lines.Length);
-        Assert.Equal("Date,MorningRuntime,AfternoonRuntime", lines[0]);
-        Assert.Equal("2026-08-25,03:00:00,00:00:00", lines[1]);
+        Assert.Equal("MachineId,Date,MorningRuntime,AfternoonRuntime", lines[0]);
+        Assert.Equal("OMAX-01,2026-08-25,03:00:00,00:00:00", lines[1]);
     }
 
 
@@ -72,7 +72,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveAfternoonRuntime_UpdatesExistingRow()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger);
+        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
         DateTime date = new DateTime(2026, 8, 25);
 
 
@@ -89,8 +89,8 @@ public class RuntimeCsvWriterTests : IDisposable
 
 
         Assert.Equal(2, lines.Length);
-        Assert.Equal("Date,MorningRuntime,AfternoonRuntime", lines[0]);
-        Assert.Equal("2026-08-25,03:00:00,02:00:00", lines[1]);
+        Assert.Equal("MachineId,Date,MorningRuntime,AfternoonRuntime", lines[0]);
+        Assert.Equal("OMAX-01,2026-08-25,03:00:00,02:00:00", lines[1]);
     }
 
 
@@ -101,7 +101,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveAfternoonRuntime_DoesNotOverwriteMorningRuntime()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger);
+        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
         DateTime date = new DateTime(2026, 8, 25);
         
         writer.SaveMorningRuntime(date, TimeSpan.FromMinutes(90));
@@ -109,7 +109,7 @@ public class RuntimeCsvWriterTests : IDisposable
         string[] lines = File.ReadAllLines(_csvPath);
 
 
-        Assert.Equal("2026-08-25,01:30:00,00:45:00", lines[1]);
+        Assert.Equal("OMAX-01,2026-08-25,01:30:00,00:45:00", lines[1]);
     }
 
 
@@ -120,7 +120,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveRuntime_ForMultipleDays_CreatesSeparateRows()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger);
+        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
         DateTime day1 = new DateTime(2026, 8, 25);
         DateTime day2 = new DateTime(2026, 8, 26);
 
@@ -131,8 +131,8 @@ public class RuntimeCsvWriterTests : IDisposable
 
 
         Assert.Equal(3, lines.Length);
-        Assert.Equal("2026-08-25,02:00:00,00:00:00", lines[1]);
-        Assert.Equal("2026-08-26,04:00:00,00:00:00", lines[2]);
+        Assert.Equal("OMAX-01,2026-08-25,02:00:00,00:00:00", lines[1]);
+        Assert.Equal("OMAX-01,2026-08-26,04:00:00,00:00:00", lines[2]);
     }
 
 
@@ -143,7 +143,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveMorningRuntime_TwiceForSameDay_UpdatesExistingRow()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger);
+        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
         DateTime date = new DateTime(2026, 8, 25);
 
 
@@ -153,6 +153,101 @@ public class RuntimeCsvWriterTests : IDisposable
 
 
         Assert.Equal(2, lines.Length);
-        Assert.Equal("2026-08-25,03:00:00,00:00:00", lines[1]);
+        Assert.Equal("OMAX-01,2026-08-25,03:00:00,00:00:00", lines[1]);
+    }
+    
+    // =========================================================
+    // MACHINE ID IS PART OF ROW LOOKUP
+    // =========================================================
+
+    [Fact]
+    public void SaveMorningRuntime_UpdatesCorrectMachineRow()
+    {
+        DateTime date = new DateTime(2026, 8, 25);
+
+        // -----------------------------------------------------
+        // Create two writers representing two machines.
+        // -----------------------------------------------------
+        var writer01 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer02 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-02");
+
+
+        // -----------------------------------------------------
+        // Create a row for each machine on the same date.
+        // -----------------------------------------------------
+        writer01.SaveMorningRuntime(date, TimeSpan.FromHours(2));
+        writer02.SaveMorningRuntime(date, TimeSpan.FromHours(4));
+
+
+        // -----------------------------------------------------
+        // Update OMAX-01 only.
+        // -----------------------------------------------------
+        writer01.SaveMorningRuntime(date, TimeSpan.FromHours(3));
+
+
+        // -----------------------------------------------------
+        // Both machines should still have their own row.
+        // -----------------------------------------------------
+        string[] lines = File.ReadAllLines(_csvPath);
+
+        Assert.Equal(3, lines.Length);
+        Assert.Equal("OMAX-01,2026-08-25,03:00:00,00:00:00", lines[1]);
+        Assert.Equal("OMAX-02,2026-08-25,04:00:00,00:00:00", lines[2]);
+    }
+    
+    [Fact]
+    public void SaveAfternoonRuntime_UpdatesCorrectMachineRow()
+    {
+        DateTime date = new DateTime(2026, 8, 25);
+        var writer01 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer02 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-02");
+
+
+        writer01.SaveMorningRuntime(date, TimeSpan.FromHours(2));
+        writer02.SaveMorningRuntime(date, TimeSpan.FromHours(4));
+        
+        writer01.SaveAfternoonRuntime(date, TimeSpan.FromHours(1));
+
+
+        string[] lines = File.ReadAllLines(_csvPath);
+        
+        Assert.Equal(3, lines.Length);
+        Assert.Equal("OMAX-01,2026-08-25,02:00:00,01:00:00", lines[1]);
+        Assert.Equal("OMAX-02,2026-08-25,04:00:00,00:00:00", lines[2]);
+    }
+    
+    [Fact]
+    public void SaveRuntime_ForMultipleMachinesAndDays_UpdatesCorrectRow()
+    {
+        DateTime day1 = new DateTime(2026, 8, 25);
+        DateTime day2 = new DateTime(2026, 8, 26);
+
+        var writer01 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer02 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-02");
+
+
+        // -----------------------------------------------------
+        // Create rows for both machines on both days.
+        // -----------------------------------------------------
+        writer01.SaveMorningRuntime(day1, TimeSpan.FromHours(2));
+        writer02.SaveMorningRuntime(day1, TimeSpan.FromHours(4));
+
+        writer01.SaveMorningRuntime(day2, TimeSpan.FromHours(3));
+        writer02.SaveMorningRuntime(day2, TimeSpan.FromHours(5));
+
+
+        // -----------------------------------------------------
+        // Update only OMAX-01 on day 2.
+        // -----------------------------------------------------
+        writer01.SaveMorningRuntime(day2, TimeSpan.FromHours(6));
+
+
+        string[] lines = File.ReadAllLines(_csvPath);
+        
+        Assert.Equal(5, lines.Length);
+        Assert.Equal("OMAX-01,2026-08-25,02:00:00,00:00:00", lines[1]);
+        Assert.Equal("OMAX-02,2026-08-25,04:00:00,00:00:00", lines[2]);
+        Assert.Equal("OMAX-01,2026-08-26,06:00:00,00:00:00", lines[3]);
+        Assert.Equal("OMAX-02,2026-08-26,05:00:00,00:00:00", lines[4]);
     }
 }

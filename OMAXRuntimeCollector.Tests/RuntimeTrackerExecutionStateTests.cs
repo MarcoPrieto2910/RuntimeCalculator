@@ -51,7 +51,7 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
 
     private RuntimeTracker CreateTracker()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger);
+        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
 
         return new RuntimeTracker(writer, _logger, calculator);

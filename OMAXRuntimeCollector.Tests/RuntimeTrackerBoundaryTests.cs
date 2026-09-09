@@ -76,16 +76,9 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     [Fact]
     public void ProcessTimeBoundary_At14_SavesMorningRuntime()
     {
-        var writer = new RuntimeCsvWriter(
-            _csvPath,
-            _logger);
-
+        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
-
-        var tracker = new RuntimeTracker(
-            writer,
-            _logger,
-            calculator);
+        var tracker = new RuntimeTracker(writer, _logger, calculator);
 
 
         // -----------------------------------------------------
@@ -120,16 +113,9 @@ public class RuntimeTrackerBoundaryTests : IDisposable
 
 
         Assert.True(File.Exists(_csvPath));
-
-        string[] lines =
-            File.ReadAllLines(_csvPath);
-
-
+        string[] lines = File.ReadAllLines(_csvPath);
         Assert.Equal(2, lines.Length);
-
-        Assert.Equal(
-            "2026-08-25,02:00:00,00:00:00",
-            lines[1]);
+        Assert.Equal("OMAX-01,2026-08-25,02:00:00,00:00:00", lines[1]);
     }
 
 
@@ -140,16 +126,9 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     [Fact]
     public void ProcessTimeBoundary_At14_SplitsActiveExecution()
     {
-        var writer = new RuntimeCsvWriter(
-            _csvPath,
-            _logger);
-
+        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
-
-        var tracker = new RuntimeTracker(
-            writer,
-            _logger,
-            calculator);
+        var tracker = new RuntimeTracker(writer, _logger, calculator);
 
 
         // -----------------------------------------------------
@@ -181,12 +160,8 @@ public class RuntimeTrackerBoundaryTests : IDisposable
         // = 30 minutes morning.
         // -----------------------------------------------------
 
-        string[] lines =
-            File.ReadAllLines(_csvPath);
-
-        Assert.Equal(
-            "2026-08-25,00:30:00,00:00:00",
-            lines[1]);
+        string[] lines = File.ReadAllLines(_csvPath);
+        Assert.Equal("OMAX-01,2026-08-25,00:30:00,00:00:00", lines[1]);
 
 
         // -----------------------------------------------------
@@ -204,17 +179,10 @@ public class RuntimeTrackerBoundaryTests : IDisposable
             $"{LocalTimestamp(new DateTime(2026, 8, 25, 14, 30, 0))}" +
             "|execution|STOPPED");
 
-        var runtime =
-            tracker.GetCurrentRuntime();
+        var runtime = tracker.GetCurrentRuntime();
 
-
-        Assert.Equal(
-            TimeSpan.FromMinutes(30),
-            runtime.Morning);
-
-        Assert.Equal(
-            TimeSpan.FromMinutes(30),
-            runtime.Afternoon);
+        Assert.Equal(TimeSpan.FromMinutes(30), runtime.Morning);
+        Assert.Equal(TimeSpan.FromMinutes(30), runtime.Afternoon);
     }
 
 
@@ -225,16 +193,9 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     [Fact]
     public void ProcessTimeBoundary_AtMidnight_SavesAfternoonRuntime()
     {
-        var writer = new RuntimeCsvWriter(
-            _csvPath,
-            _logger);
-
+        var writer = new RuntimeCsvWriter(_csvPath, _logger,  "OMAX-01");
         var calculator = new RuntimeCalculator();
-
-        var tracker = new RuntimeTracker(
-            writer,
-            _logger,
-            calculator);
+        var tracker = new RuntimeTracker(writer, _logger, calculator);
 
 
         // -----------------------------------------------------
@@ -276,15 +237,10 @@ public class RuntimeTrackerBoundaryTests : IDisposable
         // Afternoon = 01:00:00
         // -----------------------------------------------------
 
-        string[] lines =
-            File.ReadAllLines(_csvPath);
-
-
+        string[] lines = File.ReadAllLines(_csvPath);
+        
         Assert.Equal(2, lines.Length);
-
-        Assert.Equal(
-            "2026-08-25,00:00:00,01:00:00",
-            lines[1]);
+        Assert.Equal("OMAX-01,2026-08-25,00:00:00,01:00:00", lines[1]);
     }
 
 
@@ -295,16 +251,9 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     [Fact]
     public void ProcessTimeBoundary_AtMidnight_SplitsActiveExecution()
     {
-        var writer = new RuntimeCsvWriter(
-            _csvPath,
-            _logger);
-
+        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
-
-        var tracker = new RuntimeTracker(
-            writer,
-            _logger,
-            calculator);
+        var tracker = new RuntimeTracker(writer, _logger, calculator);
 
 
         // -----------------------------------------------------
@@ -336,12 +285,8 @@ public class RuntimeTrackerBoundaryTests : IDisposable
         // = 30 minutes afternoon.
         // -----------------------------------------------------
 
-        string[] lines =
-            File.ReadAllLines(_csvPath);
-
-        Assert.Equal(
-            "2026-08-25,00:00:00,00:30:00",
-            lines[1]);
+        string[] lines = File.ReadAllLines(_csvPath);
+        Assert.Equal("OMAX-01,2026-08-25,00:00:00,00:30:00", lines[1]);
 
 
         // -----------------------------------------------------
@@ -355,16 +300,9 @@ public class RuntimeTrackerBoundaryTests : IDisposable
             $"{LocalTimestamp(new DateTime(2026, 8, 26, 0, 30, 0))}" +
             "|execution|STOPPED");
 
-        var runtime =
-            tracker.GetCurrentRuntime();
-
-
-        Assert.Equal(
-            TimeSpan.Zero,
-            runtime.Morning);
-
-        Assert.Equal(
-            TimeSpan.Zero,
-            runtime.Afternoon);
+        var runtime = tracker.GetCurrentRuntime();
+        
+        Assert.Equal(TimeSpan.Zero, runtime.Morning);
+        Assert.Equal(TimeSpan.Zero, runtime.Afternoon);
     }
 }

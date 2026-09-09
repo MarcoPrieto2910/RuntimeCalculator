@@ -20,11 +20,14 @@ public class OmaxClient
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        bool wasConnected = false;
+
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                await ConnectAndReadAsync(cancellationToken);
+                await ConnectAndReadAsync(cancellationToken, wasConnected);
+                wasConnected = true;
             }
             catch (OperationCanceledException)
             {
@@ -32,7 +35,10 @@ public class OmaxClient
             }
             catch (Exception ex)
             {
-                _logger.Error($"Connection error: {ex.Message}");
+                _logger.Error(
+                    $"Unable to connect to OMAX at " +
+                    $"{_settings.Host}:{_settings.Port}: " +
+                    $"{ex.Message}");
             }
 
 
@@ -52,8 +58,7 @@ public class OmaxClient
 
             try
             {
-                await Task.Delay(
-                    TimeSpan.FromSeconds(_settings.ReconnectDelaySeconds), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(_settings.ReconnectDelaySeconds), cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -63,7 +68,7 @@ public class OmaxClient
     }
 
 
-    private async Task ConnectAndReadAsync(CancellationToken cancellationToken)
+    private async Task ConnectAndReadAsync(CancellationToken cancellationToken, bool wasConnected)
     {
         _logger.Info(
             $"Connecting to OMAX at " +
@@ -78,7 +83,14 @@ public class OmaxClient
         // -----------------------------------------------------
 
         await client.ConnectAsync(_settings.Host, _settings.Port, cancellationToken);
-        _logger.Info("Connected to OMAX.");
+        if (wasConnected)
+        {
+            _logger.Info("Connection to OMAX restored.");
+        }
+        else
+        {
+            _logger.Info("Connected to OMAX.");
+        }
 
 
         // -----------------------------------------------------
@@ -107,10 +119,10 @@ public class OmaxClient
             }
             catch (Exception ex)
             {
-                _logger.Warning(
-                    $"Error reading OMAX stream: " +
+                _logger.Error(
+                    $"Unable to connect to OMAX at " +
+                    $"{_settings.Host}:{_settings.Port}: " +
                     $"{ex.Message}");
-
                 return;
             }
 

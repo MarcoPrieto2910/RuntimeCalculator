@@ -56,9 +56,7 @@ public class RuntimeTracker
                 System.Globalization.DateTimeStyles.AdjustToUniversal,
                 out DateTimeOffset timestampUtc))
         {
-            _logger.Warning(
-                $"Invalid timestamp received: {fields[0]}");
-
+            _logger.Warning($"Invalid timestamp received: {fields[0]}");
             return;
         }
 
@@ -209,16 +207,11 @@ public class RuntimeTracker
             _executionStart = boundary;
 
 
-            _logger.Info(
-                "Machine is still active. " +
-                "Continuing into afternoon period.");
+            _logger.Info("Machine is still active. " + "Continuing into afternoon period.");
         }
 
 
-        _logger.Info(
-            $"Morning runtime: " +
-            $"{FormatDuration(_morningRuntime)}");
-
+        _logger.Info($"Morning runtime: " + $"{FormatDuration(_morningRuntime)}");
 
         _csvWriter.SaveMorningRuntime(boundary.Date, _morningRuntime);
         _logger.Info("Morning runtime saved.");
@@ -258,11 +251,8 @@ public class RuntimeTracker
         DateTime previousDay = boundary.Date.AddDays(-1);
 
 
-        _logger.Info(
-            $"Afternoon runtime: " +
-            $"{FormatDuration(_afternoonRuntime)}");
-
-
+        _logger.Info($"Afternoon runtime: " + $"{FormatDuration(_afternoonRuntime)}");
+        
         _csvWriter.SaveAfternoonRuntime(previousDay, _afternoonRuntime);
         _logger.Info("Afternoon runtime saved.");
 
@@ -275,9 +265,7 @@ public class RuntimeTracker
         _afternoonRuntime = TimeSpan.Zero;
 
 
-        _logger.Info(
-            $"Starting new runtime day: " +
-            $"{boundary:yyyy-MM-dd}");
+        _logger.Info($"Starting new runtime day: " + $"{boundary:yyyy-MM-dd}");
     }
 
 

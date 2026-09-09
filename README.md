@@ -32,13 +32,16 @@ The application is designed to run continuously in the background as a Windows S
     * 14:00
     * Midnight
 * Automatically saves runtime data to CSV.
+* Includes a unique machine identifier in the runtime data.
 * Logs application activity and connection problems.
 * Automatically attempts to reconnect when the OMAX endpoint becomes unavailable.
+* Validates configuration during application startup.
 * Configurable connection and storage settings through `appsettings.json`.
 * Runs as a Windows Service using the .NET Generic Host and `BackgroundService`.
 * Can automatically start when Windows starts.
 * Can automatically restart after an unexpected process failure.
-* Includes automated unit tests for runtime calculation, CSV writing, execution state tracking, and time boundaries.
+* Includes application version information in startup diagnostics.
+* Includes automated unit tests for runtime calculation, CSV writing, execution state tracking, configuration validation, and time boundaries.
 * Includes a fake OMAX server for local development and testing.
 * Includes PowerShell scripts for publishing, installing, and uninstalling the Windows Service.
 
@@ -49,6 +52,7 @@ RuntimeCollector/
 │
 ├── OMAXRuntimeCollector/
 │   ├── OmaxConnection/
+│   │   ├── ConfigurationValidator.cs
 │   │   ├── OmaxClient.cs
 │   │   └── OmaxSettings.cs
 │   │
@@ -69,6 +73,7 @@ RuntimeCollector/
 │   └── OMAXRuntimeCollector.csproj
 │
 ├── OMAXRuntimeCollector.Tests/
+│   ├── ConfigurationValidatorTests.cs
 │   ├── RuntimeCalculatorTests.cs
 │   ├── RuntimeCsvWriterTests.cs
 │   ├── RuntimeTrackerBoundaryTests.cs
@@ -94,6 +99,8 @@ It connects to the OMAX endpoint, processes machine events, calculates runtime, 
 
 The application is hosted using the .NET Generic Host and runs its collection logic through `RuntimeCollectorWorker`, which derives from `BackgroundService`.
 
+During startup, the application loads and validates its configuration before attempting to connect to the OMAX endpoint.
+
 When installed as a Windows Service, the collector runs in the background without requiring a user to manually launch the application.
 
 #### OMAXRuntimeCollector.Tests
@@ -106,6 +113,7 @@ The tests cover:
 * CSV output
 * Execution state transitions
 * Time-boundary behavior
+* Configuration validation
 
 #### FakeOmax
 
@@ -133,6 +141,7 @@ Example:
 
 ```json
 {
+  "MachineId": "OMAX-01",
   "Omax": {
     "Host": "localhost",
     "Port": 5000,
@@ -146,10 +155,24 @@ Example:
 }
 ```
 
+### Machine ID
+
+`MachineId` identifies the OMAX machine associated with the collector.
+
+Each machine should have its own unique identifier.
+
+Example:
+
+```json
+"MachineId": "OMAX-01"
+```
+
+The machine ID is included in the CSV output so that runtime data from multiple machines can be distinguished when stored together.
+
 ### OMAX settings
 
 | Setting                 | Description                                 |
-| ----------------------- | ------------------------------------------- |
+|-------------------------|---------------------------------------------|
 | `Host`                  | Hostname or IP address of the OMAX computer |
 | `Port`                  | Port used by the OMAX TCP endpoint          |
 | `ReconnectDelaySeconds` | Delay before attempting to reconnect        |
@@ -157,7 +180,7 @@ Example:
 ### Storage settings
 
 | Setting   | Description                           |
-| --------- | ------------------------------------- |
+|-----------|---------------------------------------|
 | `CsvPath` | Location where runtime data is stored |
 | `LogPath` | Location of the application log       |
 
@@ -181,6 +204,21 @@ For Windows Service deployment, it should normally be set to:
 
 The application log is still written to the configured log file.
 
+### Configuration Validation
+
+The application validates its configuration during startup before attempting to connect to the OMAX endpoint.
+
+The following settings are validated:
+
+* `MachineId` must not be empty.
+* `Omax.Host` must not be empty.
+* `Omax.Port` must be between 1 and 65535.
+* `Omax.ReconnectDelaySeconds` must be greater than 0.
+* `Storage.CsvPath` must not be empty.
+* `Storage.LogPath` must not be empty.
+
+If one or more configuration errors are detected, the application reports all detected errors and stops before attempting to connect to the OMAX endpoint.
+
 ## Running the Application
 
 For development and testing, the application can be run directly from the project directory:
@@ -189,7 +227,7 @@ For development and testing, the application can be run directly from the projec
 dotnet run
 ```
 
-The application will connect to the configured OMAX endpoint and begin monitoring machine activity.
+The application will load and validate its configuration, connect to the configured OMAX endpoint, and begin monitoring machine activity.
 
 To stop the application when running interactively, press:
 
@@ -237,8 +275,10 @@ The test suite verifies:
 * Morning runtime storage
 * Afternoon runtime storage
 * CSV creation and updates
+* Multiple machine CSV data
 * Execution state transitions
 * Runtime processing at time boundaries
+* Configuration validation
 
 All automated tests should pass before publishing a new version of the application.
 
@@ -281,7 +321,7 @@ OMAXRuntimeCollector/scripts/
 They are:
 
 | Script                  | Purpose                                                              |
-| ----------------------- | -------------------------------------------------------------------- |
+|-------------------------|----------------------------------------------------------------------|
 | `publish.ps1`           | Publishes the application as a self-contained `win-x86` executable   |
 | `install-service.ps1`   | Creates, configures, and starts the Windows Service                  |
 | `uninstall-service.ps1` | Stops and removes the Windows Service and its installation directory |
@@ -436,7 +476,9 @@ For a production installation, `TestMode` should normally be:
 "TestMode": false
 ```
 
-Also verify that the configured OMAX host, port, CSV path, and log path are correct for the target environment.
+Also verify that the configured `MachineId`, OMAX host, port, CSV path, and log path are correct for the target environment.
+
+Each OMAX machine should have a unique `MachineId`.
 
 ### 5. Install the service
 
@@ -548,15 +590,19 @@ The manual `sc.exe` commands remove the service but do not automatically delete 
 
 ## Runtime Output
 
-The collector produces a CSV file containing one row per day:
+The collector produces a CSV file containing one row per **machine per day**:
 
 ```csv
-Date,MorningRuntime,AfternoonRuntime
-2026-08-31,02:35:12,04:17:45
-2026-09-01,01:42:30,03:08:21
+MachineId,Date,MorningRuntime,AfternoonRuntime
+OMAX-01,2026-08-31,02:35:12,04:17:45
+OMAX-02,2026-08-31,01:42:30,03:08:21
 ```
 
+The `MachineId` identifies which OMAX machine produced the data.
+
 The morning and afternoon values represent the amount of time the machine was actively executing during each period.
+
+The collector updates the existing row when runtime for the same machine and date is saved.
 
 The default storage location is:
 
@@ -569,6 +615,8 @@ The application log is stored at:
 ```text
 %ProgramData%\OMAXRuntimeCollector\collector.log
 ```
+
+The storage location is configurable through `Storage.CsvPath` and `Storage.LogPath`.
 
 ## Architecture
 
@@ -601,6 +649,7 @@ The application separates its responsibilities into several components:
 * **RuntimeTracker** interprets execution events and maintains the current execution state.
 * **RuntimeCalculator** contains the runtime calculation logic.
 * **RuntimeCsvWriter** manages the CSV output.
+* **ConfigurationValidator** validates the application configuration before startup.
 * **AppLogger** records application activity and errors.
 
 Keeping the calculation logic separate from the connection and tracking components makes the core runtime behavior easier to test.
@@ -627,6 +676,10 @@ Try again
       │
       └───────► Repeat until connection succeeds
 ```
+
+If the connection is lost while an execution is active, the current execution is no longer tracked until a new `ACTIVE` event is received.
+
+This prevents the collector from inventing runtime during a period where the machine's state cannot be confirmed.
 
 ### Windows Service recovery
 
@@ -658,8 +711,12 @@ The following have been validated:
 
 * Runtime calculation and time-boundary handling
 * CSV creation and updates
+* Multiple-machine CSV identification using `MachineId`
 * Connection and reconnection behavior
 * Execution state tracking
+* Connection-loss handling during active execution
+* Configuration validation
+* Application version reporting
 * Running the published executable outside the development environment
 * Running as a Windows Service
 * Automatic service startup after Windows reboot
@@ -667,9 +724,11 @@ The following have been validated:
 * Automated unit test suite
 * PowerShell publishing, installation, and uninstallation scripts
 
-The next stage is to validate the collector on the real OMAX machine under normal production conditions.
+The next stage is to validate the collector on the real OMAX machines under normal production conditions.
 
 A future stage will also address centralized runtime storage so that multiple OMAX machines can contribute their runtime information to a shared location accessible by the appropriate users.
+
+The final storage architecture will depend on the network location, permissions, and service-account configuration available in the production environment.
 
 ## License
 

@@ -3,14 +3,16 @@
 public class RuntimeCsvWriter
 {
     private readonly string _filePath;
+    private readonly string _machineId;
     private readonly AppLogger _logger;
-    private const string Header = "Date,MorningRuntime,AfternoonRuntime";
+    private const string Header = "MachineId,Date,MorningRuntime,AfternoonRuntime";
 
 
-    public RuntimeCsvWriter(string filePath, AppLogger logger)
+    public RuntimeCsvWriter(string filePath, AppLogger logger, string machineId)
     {
         _filePath = Environment.ExpandEnvironmentVariables(filePath);
         _logger = logger;
+        _machineId = machineId;
 
         string? directory = Path.GetDirectoryName(_filePath);
         if (!string.IsNullOrWhiteSpace(directory))
@@ -70,7 +72,7 @@ public class RuntimeCsvWriter
             string[] fields =
                 lines[i].Split(',');
 
-            if (fields.Length > 0 && fields[0] == dateString)
+            if (fields.Length > 1 && fields[0] == _machineId && fields[1] == dateString)
             {
                 rowIndex = i;
                 break;
@@ -87,13 +89,13 @@ public class RuntimeCsvWriter
             string[] fields = lines[rowIndex].Split(',');
 
             string existingMorning =
-                fields.Length > 1
-                    ? fields[1]
+                fields.Length > 2
+                    ? fields[2]
                     : "00:00:00";
 
             string existingAfternoon =
-                fields.Length > 2
-                    ? fields[2]
+                fields.Length > 3
+                    ? fields[3]
                     : "00:00:00";
 
 
@@ -113,10 +115,10 @@ public class RuntimeCsvWriter
             }
 
 
-            lines[rowIndex] =
-                $"{dateString}," +
-                $"{existingMorning}," +
-                $"{existingAfternoon}";
+            lines[rowIndex] = $"{_machineId}," +
+                              $"{dateString}," +
+                              $"{existingMorning}," +
+                              $"{existingAfternoon}";
         }
 
         // -----------------------------------------------------
@@ -139,10 +141,10 @@ public class RuntimeCsvWriter
                     : "00:00:00";
 
 
-            lines.Add(
-                $"{dateString}," +
-                $"{morning}," +
-                $"{afternoon}");
+            lines.Add($"{_machineId}," +
+                      $"{dateString}," +
+                      $"{morning}," +
+                      $"{afternoon}");
         }
 
 

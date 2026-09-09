@@ -65,7 +65,7 @@ public class RuntimeCollectorWorker : BackgroundService
         // CSV WRITER
         // =============================================================
 
-        RuntimeCsvWriter csvWriter = new(settings.Storage.CsvPath, logger);
+        RuntimeCsvWriter csvWriter = new(settings.Storage.CsvPath, logger, settings.MachineId);
 
 
         // =============================================================

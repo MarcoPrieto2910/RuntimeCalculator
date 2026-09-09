@@ -2,6 +2,7 @@
 
 public class OmaxSettings
 {
+    public string MachineId { get; set; }
     public OmaxConnectionSettings Omax { get; set; } = new();
     public StorageSettings Storage { get; set; } = new();
     public bool TestMode { get; set; }

@@ -1,17 +1,18 @@
 ﻿using OMAXRuntimeCollector.Runtime;
+using OMAXRuntimeCollector.Runtime.Writer;
 
 namespace OMAXRuntimeCollector.Tests;
 
 using OMAXRuntimeCollector;
 using Xunit;
 
-public class RuntimeCsvWriterTests : IDisposable
+public class RuntimeLocalCsvWriterTests : IDisposable
 {
     private readonly string _testDirectory;
     private readonly string _csvPath;
     private readonly AppLogger _logger;
 
-    public RuntimeCsvWriterTests()
+    public RuntimeLocalCsvWriterTests()
     {
         // -----------------------------------------------------
         // Create a unique temporary directory for this test.
@@ -51,7 +52,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveMorningRuntime_CreatesCsvFile()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01"); 
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01"); 
         DateTime date = new DateTime(2026, 8, 25);
         TimeSpan morningRuntime = TimeSpan.FromHours(3);
 
@@ -72,7 +73,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveAfternoonRuntime_UpdatesExistingRow()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         DateTime date = new DateTime(2026, 8, 25);
 
 
@@ -101,7 +102,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveAfternoonRuntime_DoesNotOverwriteMorningRuntime()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         DateTime date = new DateTime(2026, 8, 25);
         
         writer.SaveMorningRuntime(date, TimeSpan.FromMinutes(90));
@@ -120,7 +121,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveRuntime_ForMultipleDays_CreatesSeparateRows()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         DateTime day1 = new DateTime(2026, 8, 25);
         DateTime day2 = new DateTime(2026, 8, 26);
 
@@ -143,7 +144,7 @@ public class RuntimeCsvWriterTests : IDisposable
     [Fact]
     public void SaveMorningRuntime_TwiceForSameDay_UpdatesExistingRow()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         DateTime date = new DateTime(2026, 8, 25);
 
 
@@ -168,8 +169,8 @@ public class RuntimeCsvWriterTests : IDisposable
         // -----------------------------------------------------
         // Create two writers representing two machines.
         // -----------------------------------------------------
-        var writer01 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
-        var writer02 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-02");
+        var writer01 = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer02 = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-02");
 
 
         // -----------------------------------------------------
@@ -199,8 +200,8 @@ public class RuntimeCsvWriterTests : IDisposable
     public void SaveAfternoonRuntime_UpdatesCorrectMachineRow()
     {
         DateTime date = new DateTime(2026, 8, 25);
-        var writer01 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
-        var writer02 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-02");
+        var writer01 = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer02 = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-02");
 
 
         writer01.SaveMorningRuntime(date, TimeSpan.FromHours(2));
@@ -222,8 +223,8 @@ public class RuntimeCsvWriterTests : IDisposable
         DateTime day1 = new DateTime(2026, 8, 25);
         DateTime day2 = new DateTime(2026, 8, 26);
 
-        var writer01 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
-        var writer02 = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-02");
+        var writer01 = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer02 = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-02");
 
 
         // -----------------------------------------------------

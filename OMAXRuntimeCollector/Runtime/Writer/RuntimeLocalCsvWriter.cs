@@ -1,6 +1,6 @@
-﻿namespace OMAXRuntimeCollector.Runtime;
+﻿namespace OMAXRuntimeCollector.Runtime.Writer;
 
-public class RuntimeCsvWriter
+public class RuntimeLocalCsvWriter : IRuntimeWriter
 {
     private readonly string _filePath;
     private readonly string _machineId;
@@ -8,7 +8,7 @@ public class RuntimeCsvWriter
     private const string Header = "MachineId,Date,MorningRuntime,AfternoonRuntime";
 
 
-    public RuntimeCsvWriter(string filePath, AppLogger logger, string machineId)
+    public RuntimeLocalCsvWriter(string filePath, AppLogger logger, string machineId)
     {
         _filePath = Environment.ExpandEnvironmentVariables(filePath);
         _logger = logger;

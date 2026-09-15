@@ -1,5 +1,6 @@
 ﻿using OMAXRuntimeCollector;
 using OMAXRuntimeCollector.Runtime;
+using OMAXRuntimeCollector.Runtime.Writer;
 using Xunit;
 
 namespace OMAXRuntimeCollector.Tests;
@@ -51,7 +52,7 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
 
     private RuntimeTracker CreateTracker()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
 
         return new RuntimeTracker(writer, _logger, calculator);

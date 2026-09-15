@@ -1,4 +1,5 @@
 ﻿using OMAXRuntimeCollector.Runtime;
+using OMAXRuntimeCollector.Runtime.Writer;
 
 namespace OMAXRuntimeCollector.Tests;
 
@@ -76,7 +77,7 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     [Fact]
     public void ProcessTimeBoundary_At14_SavesMorningRuntime()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
         var tracker = new RuntimeTracker(writer, _logger, calculator);
 
@@ -126,7 +127,7 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     [Fact]
     public void ProcessTimeBoundary_At14_SplitsActiveExecution()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
         var tracker = new RuntimeTracker(writer, _logger, calculator);
 
@@ -193,7 +194,7 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     [Fact]
     public void ProcessTimeBoundary_AtMidnight_SavesAfternoonRuntime()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger,  "OMAX-01");
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger,  "OMAX-01");
         var calculator = new RuntimeCalculator();
         var tracker = new RuntimeTracker(writer, _logger, calculator);
 
@@ -251,7 +252,7 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     [Fact]
     public void ProcessTimeBoundary_AtMidnight_SplitsActiveExecution()
     {
-        var writer = new RuntimeCsvWriter(_csvPath, _logger, "OMAX-01");
+        var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
         var tracker = new RuntimeTracker(writer, _logger, calculator);
 

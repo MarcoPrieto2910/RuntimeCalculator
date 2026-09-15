@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using OMAXRuntimeCollector.OmaxConnection;
 using OMAXRuntimeCollector.Runtime;
+using OMAXRuntimeCollector.Runtime.Writer;
 
 namespace OMAXRuntimeCollector;
 
@@ -95,7 +96,7 @@ public class RuntimeCollectorWorker : BackgroundService
         // CSV WRITER
         // =============================================================
 
-        RuntimeCsvWriter csvWriter = new(settings.Storage.LocalCsvPath, logger, settings.MachineId);
+        RuntimeLocalCsvWriter localCsvWriter = new(settings.Storage.LocalCsvPath, logger, settings.MachineId);
 
 
         // =============================================================
@@ -103,7 +104,7 @@ public class RuntimeCollectorWorker : BackgroundService
         // =============================================================
 
         RuntimeCalculator runtimeCalculator = new();
-        RuntimeTracker runtimeTracker = new(csvWriter, logger, runtimeCalculator);
+        RuntimeTracker runtimeTracker = new(localCsvWriter, logger, runtimeCalculator);
 
         // =============================================================
         // BOUNDARY MONITOR

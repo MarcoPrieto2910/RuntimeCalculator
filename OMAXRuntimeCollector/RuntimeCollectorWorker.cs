@@ -84,7 +84,8 @@ public class RuntimeCollectorWorker : BackgroundService
         logger.Info($"Machine ID: {settings.MachineId}");
         logger.Info($"OMAX Host: {settings.Omax.Host}");
         logger.Info($"OMAX Port: {settings.Omax.Port}");
-        logger.Info($"CSV Path: { Environment.ExpandEnvironmentVariables(settings.Storage.CsvPath) }");
+        logger.Info($"Shared CSV Path: { Environment.ExpandEnvironmentVariables(settings.Storage.SharedCsvPath) }");
+        logger.Info($"Local CSV Path: { Environment.ExpandEnvironmentVariables(settings.Storage.LocalCsvPath) }");
         logger.Info($"Log Path: { Environment.ExpandEnvironmentVariables(settings.Storage.LogPath) }");
         logger.Info("========================================");
         logger.Info("OMAX Runtime Collector starting.");
@@ -94,7 +95,7 @@ public class RuntimeCollectorWorker : BackgroundService
         // CSV WRITER
         // =============================================================
 
-        RuntimeCsvWriter csvWriter = new(settings.Storage.CsvPath, logger, settings.MachineId);
+        RuntimeCsvWriter csvWriter = new(settings.Storage.LocalCsvPath, logger, settings.MachineId);
 
 
         // =============================================================

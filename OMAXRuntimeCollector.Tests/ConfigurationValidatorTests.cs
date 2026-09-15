@@ -18,7 +18,7 @@ public class ConfigurationValidatorTests
             },
             Storage = new StorageSettings
             {
-                CsvPath = @"C:\OMAXRuntimeCollector\runtime.csv",
+                LocalCsvPath = @"C:\OMAXRuntimeCollector\runtime.csv",
                 LogPath = @"C:\OMAXRuntimeCollector\collector.log"
             }
         };
@@ -125,12 +125,29 @@ public class ConfigurationValidatorTests
             Omax = new OmaxConnectionSettings(),
             Storage = new StorageSettings
             {
-                CsvPath = ""
+                LocalCsvPath = ""
             }
         };
 
         List<string> errors = ConfigurationValidator.Validate(settings);
-        Assert.Contains("Storage.CsvPath cannot be empty.", errors);
+        Assert.Contains("Storage.LocalCsvPath cannot be empty.", errors);
+    }
+    
+    [Fact]
+    public void Validate_EmptySharedCsvPath_ReturnsError()
+    {
+        var settings = new OmaxSettings
+        {
+            MachineId = "OMAX-01",
+            Omax = new OmaxConnectionSettings(),
+            Storage = new StorageSettings
+            {
+                SharedCsvPath = ""
+            }
+        };
+        
+        List<string> errors = ConfigurationValidator.Validate(settings);
+        Assert.Contains("Storage.SharedCsvPath cannot be empty.", errors);
     }
 
 
@@ -173,19 +190,21 @@ public class ConfigurationValidatorTests
             },
             Storage = new StorageSettings
             {
-                CsvPath = "",
+                LocalCsvPath = "",
+                SharedCsvPath = "",
                 LogPath = ""
             }
         };
 
         List<string> errors = ConfigurationValidator.Validate(settings);
 
-        Assert.Equal(6, errors.Count);
+        Assert.Equal(7, errors.Count);
         Assert.Contains("MachineId cannot be empty.", errors);
         Assert.Contains("Omax.Host cannot be empty.", errors);
         Assert.Contains("Omax.Port must be between 1 and 65535.", errors);
         Assert.Contains("Omax.ReconnectDelaySeconds must be greater than 0.", errors);
-        Assert.Contains("Storage.CsvPath cannot be empty.", errors);
+        Assert.Contains("Storage.LocalCsvPath cannot be empty.", errors);
+        Assert.Contains("Storage.SharedCsvPath cannot be empty.", errors);
         Assert.Contains("Storage.LogPath cannot be empty.", errors);
     }
 }

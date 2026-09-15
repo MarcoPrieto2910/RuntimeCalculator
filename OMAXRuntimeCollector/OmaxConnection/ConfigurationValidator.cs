@@ -40,11 +40,16 @@ public static class ConfigurationValidator
         // Storage
         // -----------------------------------------------------
 
-        if (string.IsNullOrWhiteSpace(settings.Storage.CsvPath))
+        if (string.IsNullOrWhiteSpace(settings.Storage.LocalCsvPath))
         {
-            errors.Add("Storage.CsvPath cannot be empty.");
+            errors.Add("Storage.LocalCsvPath cannot be empty.");
         }
 
+        if (string.IsNullOrWhiteSpace(settings.Storage.SharedCsvPath))
+        {
+            errors.Add("Storage.SharedCsvPath cannot be empty.");
+        }
+        
         if (string.IsNullOrWhiteSpace(settings.Storage.LogPath))
         {
             errors.Add("Storage.LogPath cannot be empty.");

@@ -97,7 +97,7 @@ public class RuntimeCollectorWorker : BackgroundService
         // =============================================================
         
         RuntimeLocalCsvWriter localCsvWriter = new(settings.Storage.LocalCsvPath, logger, settings.MachineId);
-        RuntimeSharedCsvWriter sharedCsvWriter = new(settings.Storage.LocalCsvPath, logger, settings.MachineId);
+        RuntimeSharedCsvWriter sharedCsvWriter = new(settings.Storage.LocalCsvPath, logger, settings.MachineId); // TODO: Change to SharedCsvPath for release
         
         IReadOnlyList<IRuntimeWriter> runtimeWriters = new RuntimeCsvWriterBase[]
         {

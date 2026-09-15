@@ -16,21 +16,11 @@ public class RuntimeTrackerBoundaryTests : IDisposable
 
     public RuntimeTrackerBoundaryTests()
     {
-        _testDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "OMAXRuntimeCollectorTests",
-            Guid.NewGuid().ToString());
-
+        _testDirectory = Path.Combine(Path.GetTempPath(), "OMAXRuntimeCollectorTests", Guid.NewGuid().ToString());
         Directory.CreateDirectory(_testDirectory);
 
-        _csvPath = Path.Combine(
-            _testDirectory,
-            "runtime.csv");
-
-        _logPath = Path.Combine(
-            _testDirectory,
-            "collector.log");
-
+        _csvPath = Path.Combine(_testDirectory, "runtime.csv");
+        _logPath = Path.Combine(_testDirectory, "collector.log");
         _logger = new AppLogger(_logPath);
     }
 
@@ -41,9 +31,7 @@ public class RuntimeTrackerBoundaryTests : IDisposable
         {
             if (Directory.Exists(_testDirectory))
             {
-                Directory.Delete(
-                    _testDirectory,
-                    recursive: true);
+                Directory.Delete(_testDirectory, recursive: true);
             }
         }
         catch
@@ -79,7 +67,7 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     {
         var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
-        var tracker = new RuntimeTracker(writer, _logger, calculator);
+        var tracker = new RuntimeTracker(new[]{ writer }, _logger, calculator);
 
 
         // -----------------------------------------------------
@@ -129,7 +117,7 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     {
         var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
-        var tracker = new RuntimeTracker(writer, _logger, calculator);
+        var tracker = new RuntimeTracker(new[]{ writer }, _logger, calculator);
 
 
         // -----------------------------------------------------
@@ -196,7 +184,7 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     {
         var writer = new RuntimeLocalCsvWriter(_csvPath, _logger,  "OMAX-01");
         var calculator = new RuntimeCalculator();
-        var tracker = new RuntimeTracker(writer, _logger, calculator);
+        var tracker = new RuntimeTracker(new[]{ writer }, _logger, calculator);
 
 
         // -----------------------------------------------------
@@ -254,7 +242,7 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     {
         var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
-        var tracker = new RuntimeTracker(writer, _logger, calculator);
+        var tracker = new RuntimeTracker(new[]{ writer }, _logger, calculator);
 
 
         // -----------------------------------------------------

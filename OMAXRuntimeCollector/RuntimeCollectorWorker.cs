@@ -93,18 +93,26 @@ public class RuntimeCollectorWorker : BackgroundService
 
         
         // =============================================================
-        // CSV WRITER
+        // CSV WRITERS
         // =============================================================
-
+        
         RuntimeLocalCsvWriter localCsvWriter = new(settings.Storage.LocalCsvPath, logger, settings.MachineId);
 
+        // Add shared Writer here afterward...
+
+        IReadOnlyList<IRuntimeWriter> runtimeWriters = new[]
+        {
+            localCsvWriter
+        };
+
+        
 
         // =============================================================
         // RUNTIME TRACKER
         // =============================================================
 
         RuntimeCalculator runtimeCalculator = new();
-        RuntimeTracker runtimeTracker = new(localCsvWriter, logger, runtimeCalculator);
+        RuntimeTracker runtimeTracker = new(runtimeWriters, logger, runtimeCalculator);
 
         // =============================================================
         // BOUNDARY MONITOR

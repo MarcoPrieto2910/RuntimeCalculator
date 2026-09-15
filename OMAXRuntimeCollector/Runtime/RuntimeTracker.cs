@@ -4,7 +4,7 @@ namespace OMAXRuntimeCollector.Runtime;
 
 public class RuntimeTracker
 {
-    private readonly RuntimeLocalCsvWriter _localCsvWriter;
+    private readonly IReadOnlyList<IRuntimeWriter> _runtimeWriters;
     private readonly AppLogger _logger;
     private readonly RuntimeCalculator _runtimeCalculator;
     
@@ -25,9 +25,9 @@ public class RuntimeTracker
     private DateTime? _executionStart;
 
 
-    public RuntimeTracker(RuntimeLocalCsvWriter localCsvWriter, AppLogger logger, RuntimeCalculator runtimeCalculator)
+    public RuntimeTracker(IReadOnlyList<IRuntimeWriter> runtimeRuntimeWriters, AppLogger logger, RuntimeCalculator runtimeCalculator)
     {
-        _localCsvWriter = localCsvWriter;
+        _runtimeWriters = runtimeRuntimeWriters;
         _logger = logger;
         _runtimeCalculator = runtimeCalculator;
     }
@@ -215,7 +215,9 @@ public class RuntimeTracker
 
         _logger.Info($"Morning runtime: " + $"{FormatDuration(_morningRuntime)}");
 
-        _localCsvWriter.SaveMorningRuntime(boundary.Date, _morningRuntime);
+        foreach (IRuntimeWriter writer in _runtimeWriters)
+            writer.SaveMorningRuntime(boundary.Date, _morningRuntime);
+        
         _logger.Info("Morning runtime saved.");
     }
 
@@ -254,8 +256,10 @@ public class RuntimeTracker
 
 
         _logger.Info($"Afternoon runtime: " + $"{FormatDuration(_afternoonRuntime)}");
-        
-        _localCsvWriter.SaveAfternoonRuntime(previousDay, _afternoonRuntime);
+
+        foreach (var writer in _runtimeWriters)
+            writer.SaveAfternoonRuntime(previousDay, _afternoonRuntime);
+
         _logger.Info("Afternoon runtime saved.");
 
 

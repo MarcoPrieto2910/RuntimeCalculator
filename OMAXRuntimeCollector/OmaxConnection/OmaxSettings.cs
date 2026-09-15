@@ -2,7 +2,7 @@
 
 public class OmaxSettings
 {
-    public string MachineId { get; set; }
+    public required string MachineId { get; set; }
     public OmaxConnectionSettings Omax { get; set; } = new();
     public StorageSettings Storage { get; set; } = new();
     public bool TestMode { get; set; }
@@ -19,6 +19,7 @@ public class OmaxConnectionSettings
 
 public class StorageSettings
 {
-    public string CsvPath { get; set; } = "%ProgramData%\\OMAXRuntimeCollector\\runtime.csv";
+    public string LocalCsvPath { get; set; } = "%ProgramData%\\OMAXRuntimeCollector\\runtime.csv";
+    public string SharedCsvPath { get; set; } = "P:\\OMAXRuntimeCollector\\runtime.csv";
     public string LogPath { get; set; } = "%ProgramData%\\OMAXRuntimeCollector\\collector.log";
 }

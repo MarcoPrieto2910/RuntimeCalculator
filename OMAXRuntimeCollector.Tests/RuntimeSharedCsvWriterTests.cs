@@ -123,4 +123,58 @@ public class RuntimeSharedCsvWriterTests : IDisposable
         Assert.Contains("OMAX-01,2026-09-08,03:00:00,00:00:00", lines);
         Assert.Contains("OMAX-02,2026-09-08,04:00:00,00:00:00", lines);
     }
+    
+    [Fact]
+    public async Task SaveMorningRuntime_WaitsForExistingLock()
+    {
+        var writer = new RuntimeSharedCsvWriter(_testFilePath, _logger, "OMAX-01");
+        string lockFilePath = _testFilePath + ".lock";
+
+        using FileStream lockStream = new(
+            lockFilePath,
+            FileMode.OpenOrCreate,
+            FileAccess.ReadWrite,
+            FileShare.None);
+
+        Task writeTask = Task.Run(() =>
+        {
+            writer.SaveMorningRuntime(new DateTime(2026, 9, 8), TimeSpan.FromHours(3));
+        });
+
+        // Give the writer enough time to encounter the lock.
+        await Task.Delay(300);
+        Assert.False(writeTask.IsCompleted);
+
+        // Release the lock.
+        lockStream.Dispose();
+        await writeTask;
+
+        string[] lines = File.ReadAllLines(_testFilePath);
+        Assert.Equal("OMAX-01,2026-09-08,03:00:00,00:00:00", lines[1]);
+    }
+    
+    [Fact]
+    public async Task TwoWriters_WritingSameCsv_PreserveBothMachines()
+    {
+        var writer1 = new RuntimeSharedCsvWriter(_testFilePath, _logger, "OMAX-01");
+        var writer2 = new RuntimeSharedCsvWriter(_testFilePath, _logger, "OMAX-02");
+        DateTime date = new(2026, 9, 8);
+
+        Task writeTask1 = Task.Run(() =>
+        {
+            writer1.SaveMorningRuntime(date, TimeSpan.FromHours(3));
+        });
+
+        Task writeTask2 = Task.Run(() =>
+        {
+            writer2.SaveMorningRuntime(date, TimeSpan.FromHours(4));
+        });
+
+        await Task.WhenAll(writeTask1, writeTask2);
+
+        string[] lines = File.ReadAllLines(_testFilePath);
+        Assert.Equal(3, lines.Length);
+        Assert.Contains("OMAX-01,2026-09-08,03:00:00,00:00:00", lines);
+        Assert.Contains("OMAX-02,2026-09-08,04:00:00,00:00:00", lines);
+    }
 }

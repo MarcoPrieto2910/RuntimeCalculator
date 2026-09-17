@@ -7,26 +7,33 @@ using OMAXRuntimeCollector.Runtime.Writer;
 
 namespace OMAXRuntimeCollector;
 
+/// <summary>
+/// Runs the OMAX Runtime Collector as a hosted background service.
+/// Coordinates configuration, runtime tracking, CSV persistence,
+/// time-boundary processing, and the OMAX connection.
+/// </summary>
 public class RuntimeCollectorWorker : BackgroundService
 {
+    
+    /// <summary>
+    /// Starts the runtime collector and runs it until cancellation or
+    /// a fatal error occurs.
+    /// </summary>
+    /// <param name="stoppingToken">
+    /// Token used to signal that the hosted service is shutting down.
+    /// </param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // =============================================================
-        // LOAD CONFIGURATION
-        // =============================================================
-
         string configFile = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
         if (!File.Exists(configFile))
         {
             Console.WriteLine($"ERROR: {configFile} was not found.");
             return;
         }
-
-
+        
         string configurationJson = await File.ReadAllTextAsync(configFile, stoppingToken);
         OmaxSettings? settings;
-
-
+        
         try
         {
             settings =
@@ -49,30 +56,18 @@ public class RuntimeCollectorWorker : BackgroundService
             Console.WriteLine("ERROR: Configuration is empty.");
             return;
         }
-        
-        // =============================================================
-        // VALIDATE CONFIGURATION
-        // =============================================================
 
         List<string> configurationErrors = ConfigurationValidator.Validate(settings);
-
         if (configurationErrors.Count > 0)
         {
             Console.WriteLine("ERROR: Configuration validation failed.");
             Console.WriteLine();
 
             foreach (string error in configurationErrors)
-            {
                 Console.WriteLine($"- {error}");
-            }
 
             return;
         }
-
-
-        // =============================================================
-        // LOGGER & STARTUP
-        // =============================================================
 
         AppLogger logger = new(settings.Storage.LogPath, settings.TestMode);
         Version? applicationVersion = Assembly.GetExecutingAssembly().GetName().Version;
@@ -90,40 +85,21 @@ public class RuntimeCollectorWorker : BackgroundService
         logger.Info($"Log Path: { Environment.ExpandEnvironmentVariables(settings.Storage.LogPath) }");
         logger.Info("========================================");
         logger.Info("OMAX Runtime Collector starting.");
-
         
-        // =============================================================
-        // CSV WRITERS
-        // =============================================================
         
         RuntimeLocalCsvWriter localCsvWriter = new(settings.Storage.LocalCsvPath, logger, settings.MachineId);
         RuntimeSharedCsvWriter sharedCsvWriter = new(settings.Storage.SharedCsvPath, logger, settings.MachineId); 
+        IReadOnlyList<IRuntimeWriter> runtimeWriters = [ localCsvWriter, sharedCsvWriter ];
         
-        IReadOnlyList<IRuntimeWriter> runtimeWriters =
-        [
-            localCsvWriter, 
-            sharedCsvWriter
-        ];
-
-        
-
-        // =============================================================
-        // RUNTIME TRACKER
-        // =============================================================
-
         RuntimeCalculator runtimeCalculator = new();
         RuntimeTracker runtimeTracker = new(runtimeWriters, logger, runtimeCalculator);
 
-        // =============================================================
-        // BOUNDARY MONITOR
-        // =============================================================
-
+        // Run the boundary monitor alongside the OMAX connection so that
+        // runtime can be split at 14:00 and midnight even while the machine
+        // remains in an active execution state.
         Task boundaryTask = MonitorTimeBoundariesAsync(runtimeTracker, logger, stoppingToken);
-
-        // =============================================================
-        // OMAX CLIENT
-        // =============================================================
-
+        
+        
         OmaxClient client = new(settings.Omax, runtimeTracker, logger);
 
         try
@@ -149,12 +125,8 @@ public class RuntimeCollectorWorker : BackgroundService
                 // Expected during shutdown.
             }
         }
-
-
-        // =============================================================
-        // FINAL SUMMARY
-        // =============================================================
-
+        
+        
         (TimeSpan morning, TimeSpan afternoon) = runtimeTracker.GetCurrentRuntime();
 
         logger.Info("--------------------------------");
@@ -166,42 +138,35 @@ public class RuntimeCollectorWorker : BackgroundService
         logger.Info("OMAX Runtime Collector stopped.");
     }
     
-    // =============================================================
-    // TIME BOUNDARY MONITOR
-    // =============================================================
-    static async Task MonitorTimeBoundariesAsync(RuntimeTracker runtimeTracker, AppLogger logger, CancellationToken cancellationToken)
+    
+    /// <summary>
+    /// Monitors the next 14:00 and midnight boundaries and notifies the
+    /// runtime tracker when each boundary is reached.
+    /// </summary>
+    /// <param name="runtimeTracker">
+    /// Runtime tracker that processes accounting boundaries.
+    /// </param>
+    /// <param name="logger">Logger used to record the next boundary.</param>
+    /// <param name="cancellationToken">
+    /// Token used to stop the boundary monitor during service shutdown.
+    /// </param>
+    private static async Task MonitorTimeBoundariesAsync(RuntimeTracker runtimeTracker, AppLogger logger, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
             DateTime now = DateTime.Now;
             DateTime today14 = now.Date.AddHours(14);
             DateTime tomorrow00 = now.Date.AddDays(1);
-                
             DateTime nextBoundary;
-
-
-            // -----------------------------------------------------
-            // Before 14:00
-            // -----------------------------------------------------
-
+            
             if (now < today14)
-            {
                 nextBoundary = today14;
-            }
-
-            // -----------------------------------------------------
-            // 14:00 or later
-            // -----------------------------------------------------
-
             else
-            {
                 nextBoundary = tomorrow00;
-            }
-
+            
 
             TimeSpan delay = nextBoundary - now;
             logger.Info($"Next runtime boundary: " + $"{nextBoundary:yyyy-MM-dd HH:mm:ss}");
-
 
             try
             {
@@ -212,20 +177,13 @@ public class RuntimeCollectorWorker : BackgroundService
                 return;
             }
 
-
             if (cancellationToken.IsCancellationRequested)
                 return;
-
-
-            // -----------------------------------------------------
-            // IMPORTANT:
-            //
-            // Pass the actual boundary that we waited for.
-            //
-            // This is more reliable than calling DateTime.Now
-            // and checking whether Hour == 14 or 0.
-            // -----------------------------------------------------
-
+            
+            
+            // Pass the boundary we actually waited for instead of calling
+            // DateTime.Now again. This avoids missing the boundary if the
+            // task resumes slightly after 14:00 or midnight.
             runtimeTracker.ProcessTimeBoundary(nextBoundary);
         }
     }

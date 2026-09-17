@@ -7,7 +7,18 @@ public interface IRuntimeWriter
     /// critical and propagated to the caller.
     /// </summary>
     bool IsCritical { get; }
-    
+
+    /// <summary>
+    /// Saves the specified morning runtime for a machine and date.
+    /// </summary>
+    /// <param name="date">The date the runtime belongs to.</param>
+    /// <param name="runtime">The accumulated morning runtime.</param>
     void SaveMorningRuntime(DateTime date, TimeSpan runtime);
+
+    /// <summary>
+    /// Saves the specified afternoon runtime for a machine and date.
+    /// </summary>
+    /// <param name="date">The date the runtime belongs to.</param>
+    /// <param name="runtime">The accumulated afternoon runtime.</param>
     void SaveAfternoonRuntime(DateTime date, TimeSpan runtime);
 }

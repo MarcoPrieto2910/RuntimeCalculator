@@ -1,5 +1,10 @@
 ﻿namespace OMAXRuntimeCollector.Runtime.Writer;
 
+/// <summary>
+/// Writes runtime data to the shared CSV file used by multiple OMAX machines.
+/// Uses a sidecar lock file to coordinate access between machines writing
+/// to the same file.
+/// </summary>
 public class RuntimeSharedCsvWriter : RuntimeCsvWriterBase
 {
     private const string LockFileSuffix = ".lock";
@@ -9,17 +14,35 @@ public class RuntimeSharedCsvWriter : RuntimeCsvWriterBase
     private readonly int _lockTimeoutMilliseconds;
     private readonly int _lockRetryDelayMilliseconds;
 
+    /// <summary>
+    /// Gets whether a failure in the shared writer should be treated as critical.
+    /// </summary>
     public override bool IsCritical => false;
     
-    public RuntimeSharedCsvWriter(string filePath, AppLogger logger, string machineId,
-        int lockTimeoutMilliseconds = LockTimeoutMilliseconds,
-        int lockRetryDelayMilliseconds = LockRetryDelayMilliseconds)
+    
+    /// <summary>
+    /// Initializes a new shared CSV writer.
+    /// </summary>
+    /// <param name="filePath">The path of the shared runtime CSV file.</param>
+    /// <param name="logger">The application logger.</param>
+    /// <param name="machineId">The identifier of the machine whose runtime is being recorded.</param>
+    /// <param name="lockTimeoutMilliseconds">
+    /// Maximum time to wait for the shared CSV lock before failing.
+    /// </param>
+    /// <param name="lockRetryDelayMilliseconds">
+    /// Delay between attempts to acquire the shared CSV lock.
+    /// </param>
+    public RuntimeSharedCsvWriter(string filePath, AppLogger logger, string machineId, int lockTimeoutMilliseconds = LockTimeoutMilliseconds, int lockRetryDelayMilliseconds = LockRetryDelayMilliseconds)
         : base(filePath, logger, machineId)
     {
         _lockTimeoutMilliseconds = lockTimeoutMilliseconds;
         _lockRetryDelayMilliseconds = lockRetryDelayMilliseconds;
     }
 
+    /// <summary>
+    /// Acquires the shared CSV lock before updating the file.
+    /// The lock remains held until the CSV update is complete.
+    /// </summary>
     protected override void UpdateCsvRow(DateTime date, TimeSpan? morningRuntime, TimeSpan? afternoonRuntime)
     {
         string lockFilePath = _filePath + LockFileSuffix;

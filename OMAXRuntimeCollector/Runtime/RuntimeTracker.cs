@@ -22,6 +22,8 @@ public class RuntimeTracker
             "PROGRAM_COMPLETED"
         };
 
+    // Runtime state can be updated by both the OMAX connection and
+    // the accounting boundary monitor, so access must be synchronized.
     private readonly object _stateLock = new();
 
     private TimeSpan _morningRuntime = TimeSpan.Zero;
@@ -61,18 +63,13 @@ public class RuntimeTracker
     /// </param>
     public void ProcessLine(string line)
     {
-        string[] fields =
-            line.Split('|');
+        string[] fields = line.Split('|');
 
         if (fields.Length < 3)
             return;
 
-
-        // -----------------------------------------------------
-        // OMAX timestamps are UTC.
-        // Convert explicitly to local time.
-        // -----------------------------------------------------
-
+        // OMAX timestamps are UTC. Convert them explicitly to local time
+        // because runtime accounting boundaries are based on local time.
         if (!DateTimeOffset.TryParse(
                 fields[0],
                 System.Globalization.CultureInfo.InvariantCulture,
@@ -87,65 +84,33 @@ public class RuntimeTracker
 
         DateTime timestamp = timestampUtc.LocalDateTime;
 
-
-        // -----------------------------------------------------
-        // Find execution state.
-        // -----------------------------------------------------
-
         for (int i = 1; i < fields.Length - 1; i += 2)
         {
             string name = fields[i];
             string value = fields[i + 1];
 
 
-            if (!string.Equals(
-                    name,
-                    "execution",
-                    StringComparison.OrdinalIgnoreCase))
-            {
+            if (!string.Equals(name, "execution", StringComparison.OrdinalIgnoreCase))
                 continue;
-            }
-
-
+            
             lock (_stateLock)
-            {
                 ProcessExecutionState(value, timestamp);
-            }
         }
     }
 
-
-    // =========================================================
-    // PROCESS EXECUTION STATE
-    // =========================================================
-
+    
     private void ProcessExecutionState(string value, DateTime timestamp)
     {
-        // =====================================================
-        // MACHINE STARTED
-        // =====================================================
-
-        if (string.Equals(
-                value,
-                "ACTIVE",
-                StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(value, "ACTIVE", StringComparison.OrdinalIgnoreCase))
         {
             if (_executionStart == null)
             {
                 _executionStart = timestamp;
-
-                _logger.Info(
-                    $"Machine started executing at " +
-                    $"{timestamp:yyyy-MM-dd HH:mm:ss}");
+                _logger.Info($"Machine started executing at " + $"{timestamp:yyyy-MM-dd HH:mm:ss}");
             }
 
             return;
         }
-
-
-        // =====================================================
-        // MACHINE STOPPED
-        // =====================================================
 
         if (IsExecutionEndingState(value))
         {
@@ -159,17 +124,12 @@ public class RuntimeTracker
                     $"{timestamp:yyyy-MM-dd HH:mm:ss}");
 
                 AddRuntime(start, timestamp);
-
                 _executionStart = null;
             }
             
             return; // Normal exit
         }
-
-
-        // =====================================================
-        // OTHER POSSIBLE EXECUTION STATES
-        // =====================================================
+        
         _logger.Info($"Execution state received: {value}");
     }
 
@@ -188,53 +148,28 @@ public class RuntimeTracker
     {
         lock (_stateLock)
         {
-            // =================================================
-            // 14:00
-            // =================================================
-
             if (boundary.Hour == 14)
             {
                 ProcessAfternoonBoundary(boundary);
                 return;
             }
 
-
-            // =================================================
-            // MIDNIGHT
-            // =================================================
-
             if (boundary.Hour == 0)
-            {
                 ProcessMidnightBoundary(boundary);
-            }
         }
     }
-
-
-    // =========================================================
-    // HANDLE 14:00
-    // =========================================================
 
     private void ProcessAfternoonBoundary(DateTime boundary)
     {
         _logger.Info("14:00 runtime boundary reached.");
 
-
-        // -----------------------------------------------------
-        // If execution is still active, split it at 14:00.
-        // -----------------------------------------------------
-
         if (_executionStart != null)
         {
             AddRuntime(_executionStart.Value, boundary);
 
-            // The machine did NOT stop.
-            //
-            // We only move our accounting starting point
-            // to 14:00.
-
+            // The machine did not stop. Move the execution start to 14:00
+            // so subsequent runtime is attributed to the afternoon period.
             _executionStart = boundary;
-            
             _logger.Info("Machine is still active. " + "Continuing into afternoon period.");
         }
 
@@ -246,34 +181,19 @@ public class RuntimeTracker
         
         _logger.Info("Morning runtime saved.");
     }
-
-
-    // =========================================================
-    // HANDLE MIDNIGHT
-    // =========================================================
+    
 
     private void ProcessMidnightBoundary(DateTime boundary)
     {
         _logger.Info("00:00 runtime boundary reached.");
-
-
-        // -----------------------------------------------------
-        // If machine is still running, close the previous
-        // accounting period at midnight.
-        // -----------------------------------------------------
-
+        
         if (_executionStart != null)
         {
             AddRuntime(_executionStart.Value, boundary);
-
-
-            // Machine did not stop.
-            //
-            // Begin the new accounting day.
-
+            
+            // The machine did not stop. Move the execution start to midnight
+            // so subsequent runtime belongs to the new accounting day.
             _executionStart = boundary;
-
-
             _logger.Info("Machine is still active. " + "Continuing into new day.");
         }
 
@@ -288,15 +208,9 @@ public class RuntimeTracker
 
         _logger.Info("Afternoon runtime saved.");
 
-
-        // -----------------------------------------------------
-        // Reset counters for the new accounting day.
-        // -----------------------------------------------------
-
         _morningRuntime = TimeSpan.Zero;
         _afternoonRuntime = TimeSpan.Zero;
-
-
+        
         _logger.Info($"Starting new runtime day: " + $"{boundary:yyyy-MM-dd}");
     }
 
@@ -318,63 +232,34 @@ public class RuntimeTracker
                     "longer be tracked until a new ACTIVE " +
                     "event is received.");
             }
-
-
-            // -------------------------------------------------
+            
             // We cannot know what happened while disconnected.
-            //
-            // Therefore, discard the current execution start.
-            // -------------------------------------------------
-
+            // Discard the current execution start rather than inventing
+            // runtime for a period that cannot be verified.
             _executionStart = null;
         }
     }
-
-
-    // =========================================================
-    // RUNTIME CALCULATION
-    // =========================================================
 
     private void AddRuntime(DateTime start, DateTime end)
     {
         if (end <= start)
             return;
-
-
-        _logger.Info(
-            $"Execution duration: " +
-            $"{FormatDuration(end - start)}");
-
-
-        // -----------------------------------------------------
-        // Delegate the actual calculation to RuntimeCalculator.
-        // -----------------------------------------------------
+        
+        _logger.Info($"Execution duration: " + $"{FormatDuration(end - start)}");
 
         (TimeSpan morning, TimeSpan afternoon) =
             _runtimeCalculator.Calculate(start, end);
 
-
-        // -----------------------------------------------------
-        // Add the calculated values to our current totals.
-        // -----------------------------------------------------
-
         if (morning > TimeSpan.Zero)
         {
             _morningRuntime += morning;
-
-            _logger.Info(
-                $"Morning runtime +" +
-                $"{FormatDuration(morning)}");
+            _logger.Info($"Morning runtime +" + $"{FormatDuration(morning)}");
         }
-
-
+        
         if (afternoon > TimeSpan.Zero)
         {
             _afternoonRuntime += afternoon;
-
-            _logger.Info(
-                $"Afternoon runtime +" +
-                $"{FormatDuration(afternoon)}");
+            _logger.Info($"Afternoon runtime +" + $"{FormatDuration(afternoon)}");
         }
     }
 
@@ -388,9 +273,7 @@ public class RuntimeTracker
     public (TimeSpan Morning, TimeSpan Afternoon) GetCurrentRuntime()
     {
         lock (_stateLock)
-        {
             return (_morningRuntime, _afternoonRuntime);
-        }
     }
 
 
@@ -418,6 +301,13 @@ public class RuntimeTracker
             return EndingExecutionStates.Contains(value);
         }
         
+        /// <summary>
+        /// Attempts to save runtime using the specified writer.
+        /// Failures from non-critical writers are logged but do not stop
+        /// runtime tracking, while failures from critical writers are propagated.
+        /// </summary>
+        /// <param name="writer">The writer being used to persist the runtime.</param>
+        /// <param name="saveAction">The save operation to execute.</param>
         private void SaveRuntime(IRuntimeWriter writer, Action saveAction)
         {
             try

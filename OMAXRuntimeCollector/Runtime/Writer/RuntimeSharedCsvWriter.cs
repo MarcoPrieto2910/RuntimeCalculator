@@ -9,6 +9,7 @@ public class RuntimeSharedCsvWriter : RuntimeCsvWriterBase
     private readonly int _lockTimeoutMilliseconds;
     private readonly int _lockRetryDelayMilliseconds;
 
+    public override bool IsCritical => false;
     
     public RuntimeSharedCsvWriter(string filePath, AppLogger logger, string machineId,
         int lockTimeoutMilliseconds = LockTimeoutMilliseconds,

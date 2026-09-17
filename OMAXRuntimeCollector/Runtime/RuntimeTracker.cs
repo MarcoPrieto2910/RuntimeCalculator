@@ -2,6 +2,10 @@
 
 namespace OMAXRuntimeCollector.Runtime;
 
+/// <summary>
+/// Tracks machine execution states and calculates runtime
+/// for the morning and afternoon accounting periods.
+/// </summary>
 public class RuntimeTracker
 {
     private readonly IReadOnlyList<IRuntimeWriter> _runtimeWriters;
@@ -25,18 +29,36 @@ public class RuntimeTracker
     private DateTime? _executionStart;
 
 
-    public RuntimeTracker(IReadOnlyList<IRuntimeWriter> runtimeRuntimeWriters, AppLogger logger, RuntimeCalculator runtimeCalculator)
+    /// <summary>
+    /// Creates a new runtime tracker.
+    /// </summary>
+    /// <param name="runtimeWriters">
+    /// Writers used to persist calculated runtime.
+    /// </param>
+    /// <param name="logger">
+    /// Logger used to record runtime tracking events and errors.
+    /// </param>
+    /// <param name="runtimeCalculator">
+    /// Calculator used to determine how execution time is divided
+    /// between the morning and afternoon accounting periods.
+    /// </param>
+    public RuntimeTracker(IReadOnlyList<IRuntimeWriter> runtimeWriters, AppLogger logger, RuntimeCalculator runtimeCalculator)
     {
-        _runtimeWriters = runtimeRuntimeWriters;
+        _runtimeWriters = runtimeWriters;
         _logger = logger;
         _runtimeCalculator = runtimeCalculator;
     }
 
 
-    // =========================================================
-    // PROCESS MACHINE LOG
-    // =========================================================
-
+    /// <summary>
+    /// Processes a line received from the OMAX machine's MTConnect stream.
+    /// Parses the timestamp and execution state, then updates the current
+    /// runtime tracking state accordingly.
+    /// </summary>
+    /// <param name="line">
+    /// A pipe-delimited MTConnect data line containing a UTC timestamp
+    /// and machine data, including the execution state when available.
+    /// </param>
     public void ProcessLine(string line)
     {
         string[] fields =
@@ -152,10 +174,16 @@ public class RuntimeTracker
     }
 
 
-    // =========================================================
-    // HANDLE 14:00 / MIDNIGHT
-    // =========================================================
-
+    /// <summary>
+    /// Processes a runtime accounting boundary at 14:00 or midnight.
+    /// At 14:00, the current morning runtime is saved and an active
+    /// execution is split between the morning and afternoon periods.
+    /// At midnight, the current afternoon runtime is saved and the
+    /// accounting counters are reset for the new day.
+    /// </summary>
+    /// <param name="boundary">
+    /// The local date and time of the accounting boundary.
+    /// </param>
     public void ProcessTimeBoundary(DateTime boundary)
     {
         lock (_stateLock)
@@ -200,15 +228,13 @@ public class RuntimeTracker
         {
             AddRuntime(_executionStart.Value, boundary);
 
-
             // The machine did NOT stop.
             //
             // We only move our accounting starting point
             // to 14:00.
 
             _executionStart = boundary;
-
-
+            
             _logger.Info("Machine is still active. " + "Continuing into afternoon period.");
         }
 
@@ -216,7 +242,7 @@ public class RuntimeTracker
         _logger.Info($"Morning runtime: " + $"{FormatDuration(_morningRuntime)}");
 
         foreach (IRuntimeWriter writer in _runtimeWriters)
-            writer.SaveMorningRuntime(boundary.Date, _morningRuntime);
+            SaveRuntime(writer, () => writer.SaveMorningRuntime(boundary.Date, _morningRuntime));
         
         _logger.Info("Morning runtime saved.");
     }
@@ -258,7 +284,7 @@ public class RuntimeTracker
         _logger.Info($"Afternoon runtime: " + $"{FormatDuration(_afternoonRuntime)}");
 
         foreach (var writer in _runtimeWriters)
-            writer.SaveAfternoonRuntime(previousDay, _afternoonRuntime);
+            SaveRuntime(writer, () => writer.SaveAfternoonRuntime(previousDay, _afternoonRuntime));
 
         _logger.Info("Afternoon runtime saved.");
 
@@ -275,10 +301,11 @@ public class RuntimeTracker
     }
 
 
-    // =========================================================
-    // HANDLE LOST CONNECTION
-    // =========================================================
-
+    /// <summary>
+    /// Handles loss of the connection to the OMAX machine.
+    /// Any currently active execution is discarded because the machine's
+    /// state during the disconnected period cannot be reliably determined.
+    /// </summary>
     public void HandleConnectionLoss()
     {
         lock (_stateLock)
@@ -352,10 +379,12 @@ public class RuntimeTracker
     }
 
 
-    // =========================================================
-    // GET CURRENT VALUES
-    // =========================================================
-
+    /// <summary>
+    /// Gets the runtime accumulated for the current accounting day.
+    /// </summary>
+    /// <returns>
+    /// A tuple containing the accumulated morning and afternoon runtime.
+    /// </returns>
     public (TimeSpan Morning, TimeSpan Afternoon) GetCurrentRuntime()
     {
         lock (_stateLock)
@@ -365,20 +394,43 @@ public class RuntimeTracker
     }
 
 
-    // =========================================================
-    // HELPERS
-    // =========================================================
+    #region HELPERS
 
-    public static string FormatDuration(TimeSpan duration)
-    {
-        return
-            $"{(int)duration.TotalHours:00}:" +
-            $"{duration.Minutes:00}:" +
-            $"{duration.Seconds:00}";
-    }
-    
-    private static bool IsExecutionEndingState(string value)
-    {
-        return EndingExecutionStates.Contains(value);
-    }
+        /// <summary>
+        /// Formats a runtime duration as hours, minutes, and seconds.
+        /// </summary>
+        /// <param name="duration">
+        /// The duration to format.
+        /// </param>
+        /// <returns>
+        /// The duration formatted as <c>HH:MM:SS</c>.
+        /// </returns>
+        public static string FormatDuration(TimeSpan duration)
+        {
+            return
+                $"{(int)duration.TotalHours:00}:" +
+                $"{duration.Minutes:00}:" +
+                $"{duration.Seconds:00}";
+        }
+        
+        private static bool IsExecutionEndingState(string value)
+        {
+            return EndingExecutionStates.Contains(value);
+        }
+        
+        private void SaveRuntime(IRuntimeWriter writer, Action saveAction)
+        {
+            try
+            {
+                saveAction();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Failed to save runtime using {writer.GetType().Name}: {ex.Message}");
+                if (writer.IsCritical)
+                    throw;
+            }
+        }
+
+    #endregion
 }

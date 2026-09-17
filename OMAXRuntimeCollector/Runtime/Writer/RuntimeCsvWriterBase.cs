@@ -6,6 +6,8 @@ public abstract class RuntimeCsvWriterBase : IRuntimeWriter
     protected readonly string _machineId;
     protected readonly AppLogger _logger;
     protected const string Header = "MachineId,Date,MorningRuntime,AfternoonRuntime";
+    
+    public abstract bool IsCritical { get; }
 
     protected RuntimeCsvWriterBase(string filePath, AppLogger logger, string machineId)
     {
@@ -20,6 +22,7 @@ public abstract class RuntimeCsvWriterBase : IRuntimeWriter
             Directory.CreateDirectory(directory);
         }
     }
+
 
     public void SaveMorningRuntime(DateTime date, TimeSpan runtime)
     {

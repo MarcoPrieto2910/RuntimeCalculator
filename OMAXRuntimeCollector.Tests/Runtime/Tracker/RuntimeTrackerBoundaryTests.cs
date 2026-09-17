@@ -1,10 +1,7 @@
 ﻿using OMAXRuntimeCollector.Runtime;
 using OMAXRuntimeCollector.Runtime.Writer;
 
-namespace OMAXRuntimeCollector.Tests;
-
-using OMAXRuntimeCollector;
-using Xunit;
+namespace OMAXRuntimeCollector.Tests.Runtime.Tracker;
 
 public class RuntimeTrackerBoundaryTests : IDisposable
 {

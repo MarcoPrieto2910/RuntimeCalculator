@@ -1,9 +1,7 @@
-﻿using OMAXRuntimeCollector;
-using OMAXRuntimeCollector.Runtime;
+﻿using OMAXRuntimeCollector.Runtime;
 using OMAXRuntimeCollector.Runtime.Writer;
-using Xunit;
 
-namespace OMAXRuntimeCollector.Tests;
+namespace OMAXRuntimeCollector.Tests.Runtime.Tracker;
 
 public class RuntimeTrackerExecutionStateTests : IDisposable
 {

@@ -1,8 +1,6 @@
 ﻿using OMAXRuntimeCollector.Runtime;
 
-namespace OMAXRuntimeCollector.Tests;
-
-using Xunit;
+namespace OMAXRuntimeCollector.Tests.Runtime;
 
 public class RuntimeCalculatorTests
 {

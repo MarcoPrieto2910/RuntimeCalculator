@@ -1,6 +1,6 @@
 ﻿using OMAXRuntimeCollector.Runtime.Writer;
 
-namespace OMAXRuntimeCollector.Tests;
+namespace OMAXRuntimeCollector.Tests.Runtime.Writers;
 
 public class RuntimeSharedCsvWriterTests : IDisposable
 {

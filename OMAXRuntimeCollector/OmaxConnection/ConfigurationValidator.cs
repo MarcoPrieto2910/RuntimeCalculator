@@ -1,25 +1,30 @@
 ﻿namespace OMAXRuntimeCollector.OmaxConnection;
 
+/// <summary>
+/// Validates the application configuration and returns any configuration errors.
+/// </summary>
 public static class ConfigurationValidator
 {
+    
+    /// <summary>
+    /// Validates the supplied OMAX Runtime Collector configuration.
+    /// </summary>
+    /// <param name="settings">
+    /// The configuration settings to validate.
+    /// </param>
+    /// <returns>
+    /// A list containing one message for each validation error.
+    /// An empty list indicates that the configuration is valid.
+    /// </returns>
     public static List<string> Validate(OmaxSettings settings)
     {
         List<string> errors = new();
-
-        // -----------------------------------------------------
-        // Machine ID
-        // -----------------------------------------------------
-
+        
         if (string.IsNullOrWhiteSpace(settings.MachineId))
         {
             errors.Add("MachineId cannot be empty.");
         }
-
-
-        // -----------------------------------------------------
-        // OMAX connection
-        // -----------------------------------------------------
-
+        
         if (string.IsNullOrWhiteSpace(settings.Omax.Host))
         {
             errors.Add("Omax.Host cannot be empty.");
@@ -35,11 +40,6 @@ public static class ConfigurationValidator
             errors.Add("Omax.ReconnectDelaySeconds must be greater than 0.");
         }
 
-
-        // -----------------------------------------------------
-        // Storage
-        // -----------------------------------------------------
-
         if (string.IsNullOrWhiteSpace(settings.Storage.LocalCsvPath))
         {
             errors.Add("Storage.LocalCsvPath cannot be empty.");
@@ -54,8 +54,7 @@ public static class ConfigurationValidator
         {
             errors.Add("Storage.LogPath cannot be empty.");
         }
-
-
+        
         return errors;
     }
 }

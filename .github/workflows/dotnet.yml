@@ -1,0 +1,33 @@
+# This workflow builds and tests the OMAX Runtime Collector.
+# It runs automatically on pushes and pull requests targeting main or dev-V2.
+
+name: .NET
+
+on:
+  push:
+    branches: [ "main", "dev-V2" ]
+  pull_request:
+    branches: [ "main", "dev-V2" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore OMAXRuntimeCollector/OMAXRuntimeCollector.sln
+
+    - name: Build
+      run: dotnet build OMAXRuntimeCollector/OMAXRuntimeCollector.sln --no-restore
+
+    - name: Test
+      run: dotnet test OMAXRuntimeCollector.Tests/OMAXRuntimeCollector.Tests.csproj --no-build --verbosity normal

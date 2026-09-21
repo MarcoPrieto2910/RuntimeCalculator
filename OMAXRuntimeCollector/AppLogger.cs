@@ -23,27 +23,27 @@ public class AppLogger : IDisposable
     /// <param name="testMode">
     /// Whether log messages should also be written to the console.
     /// </param>
-    public AppLogger(string logPath,  bool testMode = true)
+    /// <param name="fileSizeLimitBytes">
+    /// The maximum size of a log file in bytes before a new file is created.
+    /// </param>
+    public AppLogger(string logPath,  bool testMode = true, long fileSizeLimitBytes = 10 * 1024 * 1024)
     {
         string expandedPath = Environment.ExpandEnvironmentVariables(logPath);
         _testMode = testMode;
 
         string? directory = Path.GetDirectoryName(expandedPath);
         if (!string.IsNullOrWhiteSpace(directory))
-        {
             Directory.CreateDirectory(directory);
-        }
         
         _logger = new LoggerConfiguration()
             .MinimumLevel.Information()
             .WriteTo.File(
                 path: expandedPath,
                 rollingInterval: RollingInterval.Day,
-                fileSizeLimitBytes: 10 * 1024 * 1024,
+                fileSizeLimitBytes: fileSizeLimitBytes,
                 rollOnFileSizeLimit: true,
                 retainedFileCountLimit: 30,
-                outputTemplate:
-                "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}")
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level}] {Message:lj}{NewLine}")
             .CreateLogger();
     }
 
@@ -52,29 +52,19 @@ public class AppLogger : IDisposable
     /// Writes an informational message to the log.
     /// </summary>
     /// <param name="message">The message to log.</param>
-    public void Info(string message)
-    {
-        Write("INFO", message);
-    }
+    public void Info(string message) { Write("INFO", message); }
 
     /// <summary>
     /// Writes a warning message to the log.
     /// </summary>
     /// <param name="message">The message to log.</param>
-    public void Warning(string message)
-    {
-        Write("WARNING", message);
-    }
+    public void Warning(string message) { Write("WARNING", message); }
 
     /// <summary>
     /// Writes an error message to the log.
     /// </summary>
     /// <param name="message">The message to log.</param>
-    public void Error(string message)
-    {
-        Write("ERROR", message);
-    }
-
+    public void Error(string message) { Write("ERROR", message); }
 
     /// <summary>
     /// Writes a message to Serilog and, when test mode is enabled, to the console.
@@ -99,18 +89,12 @@ public class AppLogger : IDisposable
         }
 
         if (_testMode)
-        {
-            string consoleLine = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{level}] {message}";
-            Console.WriteLine(consoleLine);
-        }
+            Console.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{level}] {message}");
     }
     
     
     /// <summary>
     /// Releases resources used by the logger.
     /// </summary>
-    public void Dispose()
-    {
-        _logger.Dispose();
-    }
+    public void Dispose() { _logger.Dispose(); }
 }

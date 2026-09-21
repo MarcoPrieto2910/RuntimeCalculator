@@ -40,6 +40,7 @@ Each machine has its own unique `MachineId`. This allows several collectors to c
     * 05:00
     * 14:00
     * Midnight
+
 * Handles multiple executions during the same accounting period.
 * Automatically saves runtime data to CSV.
 * Stores a unique machine identifier with each runtime record.
@@ -49,6 +50,8 @@ Each machine has its own unique `MachineId`. This allows several collectors to c
 * Treats local storage as critical and shared storage as non-critical.
 * Continues operating if the shared network storage is temporarily unavailable.
 * Logs application activity, connection problems, and storage errors.
+* Uses daily rolling application logs with a 10 MB per-file size limit.
+* Retains up to 30 log files.
 * Automatically reconnects when the OMAX endpoint becomes unavailable.
 * Handles connection loss during active execution without inventing runtime.
 * Validates configuration during application startup.
@@ -57,7 +60,7 @@ Each machine has its own unique `MachineId`. This allows several collectors to c
 * Can automatically start when Windows starts.
 * Can automatically restart after an unexpected process failure.
 * Includes application version information in startup diagnostics.
-* Includes automated unit tests for runtime calculation, execution tracking, CSV writing, configuration validation, time boundaries, and writer failure handling.
+* Includes automated unit tests for runtime calculation, execution tracking, CSV writing, configuration validation, time boundaries, writer failure handling, and application logging.
 * Includes a fake OMAX server for local development and testing.
 * Includes PowerShell scripts for publishing, installing, and uninstalling the Windows Service.
 
@@ -106,6 +109,7 @@ RuntimeCollector/
 │   │       ├── RuntimeLocalCsvWriterTests.cs
 │   │       └── RuntimeSharedCsvWriterTests.cs
 │   │
+│   ├── AppLoggerTests.cs
 │   ├── ConfigurationValidatorTests.cs
 │   └── OMAXRuntimeCollector.Tests.csproj
 │
@@ -160,6 +164,7 @@ The test suite covers:
 * Shared CSV locking
 * Writer failure handling
 * Configuration validation
+* Application logging and log rotation
 
 #### FakeOmax
 
@@ -425,6 +430,16 @@ The shared CSV writer is non-critical because it is a secondary centralized copy
 * Shared CSV path
 * Log path
 
+### Application logging
+
+The logging tests verify that:
+
+* Informational messages are written to the log file.
+* Console logging works when `TestMode` is enabled.
+* Log files roll over when the configured file-size limit is exceeded.
+
+The production logger uses daily rolling with a 10 MB file-size limit and retains up to 30 log files.
+
 All automated tests should pass before publishing a new version.
 
 ---
@@ -676,7 +691,7 @@ After Windows starts:
 1. Open `services.msc`.
 2. Find **OMAX Runtime Collector**.
 3. Verify that its status is **Running**.
-4. Check `collector.log` for a new startup entry.
+4. Check the latest application log file for a new startup entry.
 5. Verify that the collector attempts to connect to the configured OMAX endpoint.
 
 The collector should start automatically without manually launching the executable.
@@ -709,13 +724,7 @@ This simulates an unexpected application failure rather than a normal service sh
 
 Windows should detect the failure and restart the service according to the configured recovery policy.
 
-A new startup sequence should subsequently appear in `collector.log`:
-
-```text
-OMAX Runtime Collector
-========================================
-OMAX Runtime Collector starting.
-```
+A new startup sequence should subsequently appear in the application log.
 
 ## 9. Stop the service
 
@@ -809,11 +818,17 @@ The actual multi-computer SMB/network-share integration still needs to be valida
 
 ## Application Log
 
-The application log is stored by default at:
+The application log is stored under `%ProgramData%` by default.
+
+The base path configured in `appsettings.json` is:
 
 ```text
 %ProgramData%\OMAXRuntimeCollector\collector.log
 ```
+
+The logger uses **daily rolling** and a **10 MB file-size limit**. If the log exceeds the size limit during a day, an additional log file is created for that day.
+
+Up to **30 log files** are retained. This retention limit counts log files rather than calendar days because a single day can produce more than one file if the 10 MB size limit is exceeded.
 
 Startup diagnostics include information such as:
 
@@ -975,6 +990,14 @@ IsCritical = false
 
 It uses a `.lock` file with exclusive file access to coordinate concurrent writes from multiple collectors.
 
+## AppLogger
+
+Provides application logging through Serilog.
+
+It writes application messages to rolling log files and, when `TestMode` is enabled, also writes them to the console.
+
+Log files use daily rolling with a 10 MB size limit and a 30-file retention limit.
+
 ---
 
 # Reliability
@@ -1038,6 +1061,12 @@ Collector continues
 Local storage remains available
 ```
 
+## Logging failure
+
+Application logging is intended to provide diagnostics without affecting runtime tracking logic.
+
+The logger manages rolling log files so that application logs do not grow indefinitely. The production configuration limits individual files to 10 MB and retains up to 30 log files.
+
 ## Windows Service recovery
 
 If the collector process itself unexpectedly terminates, Windows Service Control Manager can restart it using the configured service recovery actions.
@@ -1086,6 +1115,8 @@ The following have been validated through automated tests or development-environ
 * Connection-loss handling during active execution
 * Configuration validation
 * Application version reporting
+* Application logging
+* Log file size-based rolling
 * Running the published executable outside the development environment
 * Running as a Windows Service
 * Automatic service startup after Windows reboot
@@ -1108,6 +1139,7 @@ This includes:
 * Confirming that the `.lock` file coordinates writes correctly across computers.
 * Confirming behavior when the shared network drive is temporarily unavailable.
 * Confirming normal runtime collection during real machine operation.
+* Confirming automatic service startup on the real OMAX computers after a full shutdown and power-on.
 
 The shared network integration has been tested through automated unit tests, including locking and concurrent writer scenarios, but the actual multi-computer network-share behavior has not yet been validated in the production environment.
 

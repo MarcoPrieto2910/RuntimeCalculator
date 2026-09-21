@@ -1,40 +1,50 @@
-﻿namespace OMAXRuntimeCollector;
+﻿using Serilog;
+using Serilog.Core;
 
-using System.Globalization;
+namespace OMAXRuntimeCollector;
 
 
 /// <summary>
-/// Provides application logging to a log file and, when test mode is enabled,
+/// Provides application logging to rolling log files and, when test mode is enabled,
 /// to the console.
 /// </summary>
-public class AppLogger
+public class AppLogger : IDisposable
 {
-    private readonly string _logPath;
+    private readonly Logger _logger;
     private readonly bool _testMode;
-    
-    // Ensures that multiple threads cannot write to the log file simultaneously.
-    private readonly object _lock = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AppLogger"/> class.
     /// </summary>
     /// <param name="logPath">
-    /// The path of the log file. Environment variables in the path are expanded
-    /// before the file is accessed.
+    /// The base path of the log file. Environment variables in the path are
+    /// expanded before the logger is configured.
     /// </param>
     /// <param name="testMode">
     /// Whether log messages should also be written to the console.
     /// </param>
     public AppLogger(string logPath,  bool testMode = true)
     {
-        _logPath = ExpandPath(logPath);
+        string expandedPath = Environment.ExpandEnvironmentVariables(logPath);
         _testMode = testMode;
 
-        string? directory = Path.GetDirectoryName(_logPath);
+        string? directory = Path.GetDirectoryName(expandedPath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
             Directory.CreateDirectory(directory);
         }
+        
+        _logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.File(
+                path: expandedPath,
+                rollingInterval: RollingInterval.Day,
+                fileSizeLimitBytes: 10 * 1024 * 1024,
+                rollOnFileSizeLimit: true,
+                retainedFileCountLimit: 30,
+                outputTemplate:
+                "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}")
+            .CreateLogger();
     }
 
 
@@ -67,34 +77,40 @@ public class AppLogger
 
 
     /// <summary>
-    /// Writes a formatted log message to the log file and, when test mode is
-    /// enabled, to the console.
+    /// Writes a message to Serilog and, when test mode is enabled, to the console.
     /// </summary>
     /// <param name="level">The severity level of the message.</param>
     /// <param name="message">The message to log.</param>
     private void Write(string level, string message)
     {
-        string line =
-            $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss",
-                CultureInfo.InvariantCulture)} " +
-            $"[{level}] {message}";
-
-        lock (_lock)
+        switch (level)
         {
-            File.AppendAllText(_logPath, line + Environment.NewLine);
+            case "INFO":
+                _logger.Information(message);
+                break;
+
+            case "WARNING":
+                _logger.Warning(message);
+                break;
+
+            case "ERROR":
+                _logger.Error(message);
+                break;
         }
 
         if (_testMode)
-            Console.WriteLine(line);
+        {
+            string consoleLine = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{level}] {message}";
+            Console.WriteLine(consoleLine);
+        }
     }
-
+    
+    
     /// <summary>
-    /// Expands environment variables contained in a file path.
+    /// Releases resources used by the logger.
     /// </summary>
-    /// <param name="path">The path that may contain environment variables.</param>
-    /// <returns>The path with any environment variables expanded.</returns>
-    private static string ExpandPath(string path)
+    public void Dispose()
     {
-        return Environment.ExpandEnvironmentVariables(path);
+        _logger.Dispose();
     }
 }

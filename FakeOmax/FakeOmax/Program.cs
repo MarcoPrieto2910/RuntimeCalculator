@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Globalization;
 
 const int port = 5000;
 const string filePath = "stream-test2.txt";
@@ -65,7 +66,6 @@ static async Task<(TimeSpan Morning, TimeSpan Afternoon, bool ShouldQuit)> SendS
     {
         using NetworkStream stream = client.GetStream();
         using StreamWriter writer = new StreamWriter(stream);
-
         writer.AutoFlush = true;
 
         while (true)
@@ -74,13 +74,14 @@ static async Task<(TimeSpan Morning, TimeSpan Afternoon, bool ShouldQuit)> SendS
             Console.WriteLine();
 
             using StreamReader reader = new StreamReader(filePath);
-
             string? line;
-
             while ((line = await reader.ReadLineAsync()) != null)
             {
-                await writer.WriteLineAsync(line);
-                Console.WriteLine($"Sent: {line}");
+                string updatedLine = UpdateTimestampDate(line);
+
+                await writer.WriteLineAsync(updatedLine);
+                Console.WriteLine($"Sent: {updatedLine}");
+
                 await Task.Delay(10);
             }
 
@@ -92,13 +93,11 @@ static async Task<(TimeSpan Morning, TimeSpan Afternoon, bool ShouldQuit)> SendS
 
             Console.WriteLine();
             Console.WriteLine("Expected runtime:");
-            Console.WriteLine(
-                $"  Morning:   {FormatDuration(totalMorningRuntime)}");
-            Console.WriteLine(
-                $"  Afternoon: {FormatDuration(totalAfternoonRuntime)}");
+            Console.WriteLine($"  Morning:   {FormatDuration(totalMorningRuntime)}");
+            Console.WriteLine($"  Afternoon: {FormatDuration(totalAfternoonRuntime)}");
 
             Console.WriteLine();
-            Console.WriteLine("Press ENTER to send again, or Q to stop.");
+            Console.WriteLine("Press ENTER to send again, or Q then ENTER to stop.");
 
             string? input = Console.ReadLine();
 
@@ -109,10 +108,7 @@ static async Task<(TimeSpan Morning, TimeSpan Afternoon, bool ShouldQuit)> SendS
 
                 client.Close();
 
-                return (
-                    totalMorningRuntime,
-                    totalAfternoonRuntime,
-                    true);
+                return (totalMorningRuntime, totalAfternoonRuntime, true);
             }
 
             Console.WriteLine();
@@ -122,12 +118,33 @@ static async Task<(TimeSpan Morning, TimeSpan Afternoon, bool ShouldQuit)> SendS
     {
         Console.WriteLine($"Client connection ended: {ex.Message}");
         client.Dispose();
-
-        return (
-            totalMorningRuntime,
-            totalAfternoonRuntime,
-            false);
+        return (totalMorningRuntime, totalAfternoonRuntime, false);
     }
+}
+
+static string UpdateTimestampDate(string line)
+{
+    int separatorIndex = line.IndexOf('|');
+
+    // The line does not contain a timestamp field.
+    if (separatorIndex <= 0)
+        return line;
+
+    string timestampText = line[..separatorIndex];
+
+    if (!DateTimeOffset.TryParse(
+            timestampText,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal |
+            DateTimeStyles.AdjustToUniversal,
+            out _))
+    {
+        // Keep unexpected lines unchanged rather than modifying them.
+        return line;
+    }
+
+    string updatedTimestamp = $"{DateTime.Today:yyyy-MM-dd}{timestampText[10..]}";
+    return updatedTimestamp + line[separatorIndex..];
 }
 
 static string FormatDuration(TimeSpan duration)

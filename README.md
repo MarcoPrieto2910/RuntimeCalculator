@@ -40,7 +40,6 @@ Each machine has its own unique `MachineId`. This allows several collectors to c
     * 05:00
     * 14:00
     * Midnight
-
 * Handles multiple executions during the same accounting period.
 * Automatically saves runtime data to CSV.
 * Stores a unique machine identifier with each runtime record.
@@ -62,6 +61,8 @@ Each machine has its own unique `MachineId`. This allows several collectors to c
 * Includes application version information in startup diagnostics.
 * Includes automated unit tests for runtime calculation, execution tracking, CSV writing, configuration validation, time boundaries, writer failure handling, and application logging.
 * Includes a fake OMAX server for local development and testing.
+* FakeOmax automatically updates stream timestamps to the current date when replaying test data.
+* FakeOmax supports repeated stream replays and displays cumulative expected runtime.
 * Includes PowerShell scripts for publishing, installing, and uninstalling the Windows Service.
 
 ---
@@ -172,7 +173,13 @@ A lightweight local server used to simulate the OMAX endpoint during development
 
 Instead of connecting to a real machine, it reads test data from text files and exposes the simulated stream through a TCP endpoint.
 
-This makes it possible to test the collector without requiring access to a physical OMAX machine.
+FakeOmax maintains the TCP connection while waiting between stream replays, which more closely resembles the behavior observed from the real OMAX stream.
+
+When a collector connects, the first stream replay begins automatically. After the replay finishes, the user can press **Enter** followed by Enter to replay the stream again, or press **Q** followed by Enter to stop FakeOmax.
+
+Before sending each line, FakeOmax replaces the date portion of valid timestamps with the current date while preserving the original time, fractional seconds, and remaining stream data.
+
+FakeOmax also maintains cumulative expected runtime values for the current test session. These values are predetermined for each test stream rather than calculated independently by FakeOmax.
 
 ---
 
@@ -279,7 +286,7 @@ Each collector uses its `MachineId` to identify its own rows in the shared CSV.
 
 The shared storage is considered a secondary copy. If the network drive becomes temporarily unavailable, the collector continues operating and the local CSV remains available.
 
-The actual network-share integration still needs to be validated on the production network.
+The actual multi-computer network-share integration still needs to be validated on the production network.
 
 ## TestMode
 
@@ -359,9 +366,86 @@ Then start the collector:
 dotnet run --project OMAXRuntimeCollector
 ```
 
-The fake server reads one of the provided test streams and exposes the simulated events through its configured TCP endpoint.
+FakeOmax listens on the configured TCP endpoint, normally:
 
-This allows the collector to be tested without connecting to a physical machine.
+```text
+localhost:5000
+```
+
+The fake server reads the test stream from:
+
+```text
+stream-test2.txt
+```
+
+The first replay starts automatically when the collector connects.
+
+After the stream finishes, FakeOmax displays the expected cumulative runtime and waits for another command:
+
+```text
+Press ENTER to send again, or Q then ENTER to stop.
+```
+
+### Replaying the test stream
+
+For the current `stream-test2.txt`, one replay represents:
+
+```text
+Expected runtime:
+  Morning:   03:31:11
+  Afternoon: 00:30:48
+```
+
+A second replay accumulates another copy of those values:
+
+```text
+Expected runtime:
+  Morning:   07:02:22
+  Afternoon: 01:01:36
+```
+
+A third replay results in:
+
+```text
+Expected runtime:
+  Morning:   10:33:33
+  Afternoon: 01:32:24
+```
+
+The expected runtime values are predetermined for the test stream. FakeOmax does not duplicate the collector's runtime-calculation logic.
+
+### Timestamp handling
+
+The original test files contain fixed historical dates.
+
+FakeOmax automatically replaces the date portion of each valid timestamp with the current date before sending the line to the collector.
+
+For example:
+
+```text
+2026-08-28T14:00:08.0179|mode|AUTOMATIC|execution|ACTIVE
+```
+
+is sent as:
+
+```text
+[current-date]T14:00:08.0179|mode|AUTOMATIC|execution|ACTIVE
+```
+
+Only the date is changed. The time, fractional seconds, and remaining machine data are preserved.
+
+This prevents the test stream from generating runtime for an outdated date and removes the need to manually edit the test files each day.
+
+### FakeOmax commands
+
+After each replay:
+
+* **Enter + Enter** — replay the test stream.
+* **Q + Enter** — stop FakeOmax completely.
+
+The `Q` command requires Enter because FakeOmax uses `Console.ReadLine()` to receive console commands.
+
+If the collector disconnects unexpectedly, FakeOmax closes the current client connection and returns to its connection-waiting state.
 
 ---
 
@@ -696,6 +780,8 @@ After Windows starts:
 
 The collector should start automatically without manually launching the executable.
 
+Automatic startup has been successfully validated during development testing, including after normal Windows restarts and shutdown/power-on cycles when the service was left running before shutdown.
+
 ## 8. Test service recovery
 
 To verify that Windows can recover from an unexpected collector process failure:
@@ -735,6 +821,8 @@ sc.exe stop OMAXRuntimeCollector
 ```
 
 Alternatively, the service can be stopped from `services.msc`.
+
+A manually stopped service may remain stopped after a subsequent reboot. For automatic-startup testing, the service should be running before shutting down the computer.
 
 ## 10. Remove the service
 
@@ -809,6 +897,8 @@ P:\OMAXRuntimeCollector\runtime.csv.lock
 ```
 
 The lock prevents multiple collectors from simultaneously reading and modifying the shared CSV.
+
+The lock is implemented using an open file handle with exclusive access. The presence of the `.lock` file itself does not indicate that the file is currently locked; the lock is held by the active file handle.
 
 The shared writer waits for an existing lock for a configurable amount of time. If the lock cannot be acquired within the configured timeout, the write fails and the error is reported to the runtime tracker.
 
@@ -1095,7 +1185,7 @@ These Windows Service recovery behaviors have been tested successfully in the de
 
 # Current Project Status
 
-The project has completed the main Windows Service implementation and local development/deployment testing.
+The main Windows Service implementation is complete, and the collector has undergone extensive automated and development-environment validation.
 
 The following have been validated through automated tests or development-environment testing:
 
@@ -1119,10 +1209,29 @@ The following have been validated through automated tests or development-environ
 * Log file size-based rolling
 * Running the published executable outside the development environment
 * Running as a Windows Service
-* Automatic service startup after Windows reboot
+* Automatic service startup after Windows restart
+* Automatic service startup after shutdown and power-on when the service was left running
 * Automatic service recovery after an unexpected collector process failure
 * Automated unit test suite
 * PowerShell publishing, installation, and uninstallation scripts
+* End-to-end 14:00 runtime persistence using FakeOmax
+* Local CSV persistence at the 14:00 boundary
+* Shared CSV persistence using a local development path
+* Shared CSV lock acquisition and release
+* FakeOmax repeated stream replay
+* FakeOmax cumulative expected runtime display
+* FakeOmax automatic timestamp date replacement
+
+The development FakeOmax stream has also been used to verify the collector's handling of multiple cutting executions and an execution crossing the 14:00 boundary.
+
+For the current `stream-test2.txt` test scenario, one replay produces:
+
+```text
+Morning:   03:31:11
+Afternoon: 00:30:48
+```
+
+The actual 14:00 boundary was successfully observed during development testing, with the expected morning runtime written to both the local CSV and the shared test CSV.
 
 ## Remaining production validation
 
@@ -1140,8 +1249,9 @@ This includes:
 * Confirming behavior when the shared network drive is temporarily unavailable.
 * Confirming normal runtime collection during real machine operation.
 * Confirming automatic service startup on the real OMAX computers after a full shutdown and power-on.
+* Confirming runtime persistence at the 14:00 and midnight boundaries during real machine operation.
 
-The shared network integration has been tested through automated unit tests, including locking and concurrent writer scenarios, but the actual multi-computer network-share behavior has not yet been validated in the production environment.
+The shared network integration has been tested through automated unit tests and development-environment testing, including locking and concurrent writer scenarios, but the actual multi-computer network-share behavior has not yet been validated across the production OMAX computers.
 
 ---
 

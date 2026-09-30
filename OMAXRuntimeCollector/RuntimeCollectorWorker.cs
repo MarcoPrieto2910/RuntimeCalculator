@@ -14,6 +14,21 @@ namespace OMAXRuntimeCollector;
 /// </summary>
 public class RuntimeCollectorWorker : BackgroundService
 {
+    private readonly string? _configFile;
+
+    /// <summary>
+    /// Creates a new runtime collector worker.
+    /// </summary>
+    /// <param name="configFile">
+    /// Optional path to the configuration file. When omitted, the worker
+    /// uses the <c>appsettings.json</c> file located beside the application.
+    /// This parameter is primarily used to provide an isolated configuration
+    /// file during testing.
+    /// </param>
+    public RuntimeCollectorWorker(string? configFile = null)
+    {
+        _configFile = configFile;
+    }
     
     /// <summary>
     /// Starts the runtime collector and runs it until cancellation or
@@ -24,7 +39,7 @@ public class RuntimeCollectorWorker : BackgroundService
     /// </param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        string configFile = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        string configFile = _configFile ?? Path.Combine(AppContext.BaseDirectory, "appsettings.json");
         if (!File.Exists(configFile))
         {
             Console.WriteLine($"ERROR: {configFile} was not found.");

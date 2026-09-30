@@ -1,6 +1,6 @@
 ﻿using OMAXRuntimeCollector.OmaxConnection;
 
-namespace OMAXRuntimeCollector.Tests;
+namespace OMAXRuntimeCollector.Tests.OmaxConnection;
 
 public class ConfigurationValidatorTests
 {
@@ -23,7 +23,7 @@ public class ConfigurationValidatorTests
             }
         };
 
-        List<string> errors = ConfigurationValidator.Validate(settings);
+        var errors = ConfigurationValidator.Validate(settings);
         Assert.Empty(errors);
     }
     
@@ -41,7 +41,7 @@ public class ConfigurationValidatorTests
             Storage = new StorageSettings()
         };
 
-        List<string> errors = ConfigurationValidator.Validate(settings);
+        var errors = ConfigurationValidator.Validate(settings);
         Assert.Contains("MachineId cannot be empty.", errors);
     }
 
@@ -63,7 +63,7 @@ public class ConfigurationValidatorTests
             Storage = new StorageSettings()
         };
 
-        List<string> errors = ConfigurationValidator.Validate(settings);
+        var errors = ConfigurationValidator.Validate(settings);
         Assert.Contains("Omax.Host cannot be empty.", errors);
     }
 
@@ -85,7 +85,7 @@ public class ConfigurationValidatorTests
             Storage = new StorageSettings()
         };
 
-        List<string> errors = ConfigurationValidator.Validate(settings);
+        var errors = ConfigurationValidator.Validate(settings);
         Assert.Contains("Omax.Port must be between 1 and 65535.", errors);
     }
 
@@ -107,7 +107,7 @@ public class ConfigurationValidatorTests
             Storage = new StorageSettings()
         };
 
-        List<string> errors = ConfigurationValidator.Validate(settings);
+        var errors = ConfigurationValidator.Validate(settings);
         Assert.Contains("Omax.ReconnectDelaySeconds must be greater than 0.", errors);
     }
 
@@ -129,7 +129,7 @@ public class ConfigurationValidatorTests
             }
         };
 
-        List<string> errors = ConfigurationValidator.Validate(settings);
+        var errors = ConfigurationValidator.Validate(settings);
         Assert.Contains("Storage.LocalCsvPath cannot be empty.", errors);
     }
     
@@ -146,7 +146,7 @@ public class ConfigurationValidatorTests
             }
         };
         
-        List<string> errors = ConfigurationValidator.Validate(settings);
+        var errors = ConfigurationValidator.Validate(settings);
         Assert.Contains("Storage.SharedCsvPath cannot be empty.", errors);
     }
 
@@ -168,7 +168,7 @@ public class ConfigurationValidatorTests
             }
         };
 
-        List<string> errors = ConfigurationValidator.Validate(settings);
+        var errors = ConfigurationValidator.Validate(settings);
         Assert.Contains("Storage.LogPath cannot be empty.", errors);
     }
     
@@ -196,7 +196,7 @@ public class ConfigurationValidatorTests
             }
         };
 
-        List<string> errors = ConfigurationValidator.Validate(settings);
+        var errors = ConfigurationValidator.Validate(settings);
 
         Assert.Equal(7, errors.Count);
         Assert.Contains("MachineId cannot be empty.", errors);
@@ -205,6 +205,126 @@ public class ConfigurationValidatorTests
         Assert.Contains("Omax.ReconnectDelaySeconds must be greater than 0.", errors);
         Assert.Contains("Storage.LocalCsvPath cannot be empty.", errors);
         Assert.Contains("Storage.SharedCsvPath cannot be empty.", errors);
+        Assert.Contains("Storage.LogPath cannot be empty.", errors);
+    }
+    
+    [Fact]
+    public void Validate_WhitespaceMachineId_ReturnsError()
+    {
+        var settings = new OmaxSettings
+        {
+            MachineId = "   ",
+            Omax = new OmaxConnectionSettings
+            {
+                Host = "localhost",
+                Port = 5000,
+                ReconnectDelaySeconds = 5
+            },
+            Storage = new StorageSettings
+            {
+                LocalCsvPath = @"C:\OMAXRuntimeCollector\runtime.csv",
+                SharedCsvPath = @"P:\OMAXRuntimeCollector\runtime.csv",
+                LogPath = @"C:\OMAXRuntimeCollector\collector.log"
+            }
+        };
+
+        var errors = ConfigurationValidator.Validate(settings);
+        Assert.Contains("MachineId cannot be empty.", errors);
+    }
+    
+    [Fact]
+    public void Validate_WhitespaceHost_ReturnsError()
+    {
+        var settings = new OmaxSettings
+        {
+            MachineId = "OMAX-01",
+            Omax = new OmaxConnectionSettings
+            {
+                Host = "   ",
+                Port = 5000,
+                ReconnectDelaySeconds = 5
+            },
+            Storage = new StorageSettings
+            {
+                LocalCsvPath = @"C:\OMAXRuntimeCollector\runtime.csv",
+                SharedCsvPath = @"P:\OMAXRuntimeCollector\runtime.csv",
+                LogPath = @"C:\OMAXRuntimeCollector\collector.log"
+            }
+        };
+
+        var errors = ConfigurationValidator.Validate(settings);
+        Assert.Contains("Omax.Host cannot be empty.", errors);
+    }
+    
+    [Fact]
+    public void Validate_WhitespaceCsvPath_ReturnsError()
+    {
+        var settings = new OmaxSettings
+        {
+            MachineId = "OMAX-01",
+            Omax = new OmaxConnectionSettings
+            {
+                Host = "localhost",
+                Port = 5000,
+                ReconnectDelaySeconds = 5
+            },
+            Storage = new StorageSettings
+            {
+                LocalCsvPath = "   ",
+                SharedCsvPath = @"P:\OMAXRuntimeCollector\runtime.csv",
+                LogPath = @"C:\OMAXRuntimeCollector\collector.log"
+            }
+        };
+
+        var errors = ConfigurationValidator.Validate(settings);
+        Assert.Contains("Storage.LocalCsvPath cannot be empty.", errors);
+    }
+    
+    [Fact]
+    public void Validate_WhitespaceSharedCsvPath_ReturnsError()
+    {
+        var settings = new OmaxSettings
+        {
+            MachineId = "OMAX-01",
+            Omax = new OmaxConnectionSettings
+            {
+                Host = "localhost",
+                Port = 5000,
+                ReconnectDelaySeconds = 5
+            },
+            Storage = new StorageSettings
+            {
+                LocalCsvPath = @"C:\OMAXRuntimeCollector\runtime.csv",
+                SharedCsvPath = "   ",
+                LogPath = @"C:\OMAXRuntimeCollector\collector.log"
+            }
+        };
+
+        var errors = ConfigurationValidator.Validate(settings);
+        Assert.Contains("Storage.SharedCsvPath cannot be empty.", errors);
+    }
+    
+    [Fact]
+    public void Validate_WhitespaceLogPath_ReturnsError()
+    {
+        var settings = new OmaxSettings
+        {
+            MachineId = "OMAX-01",
+            Omax = new OmaxConnectionSettings
+            {
+                Host = "localhost",
+                Port = 5000,
+                ReconnectDelaySeconds = 5
+            },
+            Storage = new StorageSettings
+            {
+                LocalCsvPath = @"C:\OMAXRuntimeCollector\runtime.csv",
+                SharedCsvPath = @"P:\OMAXRuntimeCollector\runtime.csv",
+                LogPath = "   "
+            }
+        };
+
+        var errors = ConfigurationValidator.Validate(settings);
         Assert.Contains("Storage.LogPath cannot be empty.", errors);
     }
 }

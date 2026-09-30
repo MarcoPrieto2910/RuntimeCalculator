@@ -33,9 +33,7 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
         try
         {
             if (Directory.Exists(_testDirectory))
-            {
                 Directory.Delete(_testDirectory, recursive: true);
-            }
         }
         catch
         {
@@ -53,7 +51,7 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
         var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
         var calculator = new RuntimeCalculator();
 
-        return new RuntimeTracker(new[]{writer}, _logger, calculator);
+        return new RuntimeTracker([writer], _logger, calculator);
     }
 
 
@@ -70,34 +68,24 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
     public void EndingExecutionState_StopsRuntime(string executionState)
     {
         var tracker = CreateTracker();
-        DateTime start = new DateTime(2026, 8, 25, 10, 0, 0);
-        DateTime end = new DateTime(2026, 8, 25, 12, 0, 0);
-
+        var start = new DateTime(2026, 8, 25, 10, 0, 0);
+        var end = new DateTime(2026, 8, 25, 12, 0, 0);
 
         // -----------------------------------------------------
         // Start execution.
         // -----------------------------------------------------
-
-        tracker.ProcessLine(
-            $"{start:yyyy-MM-ddTHH:mm:ss}Z" +
-            "|mode|AUTOMATIC|execution|ACTIVE");
-
+        tracker.ProcessLine($"{start:yyyy-MM-ddTHH:mm:ss}Z" + "|mode|AUTOMATIC|execution|ACTIVE");
 
         // -----------------------------------------------------
         // End execution using the state being tested.
         // -----------------------------------------------------
-
-        tracker.ProcessLine(
-            $"{end:yyyy-MM-ddTHH:mm:ss}Z" +
-            $"|execution|{executionState}");
-
+        tracker.ProcessLine($"{end:yyyy-MM-ddTHH:mm:ss}Z" + $"|execution|{executionState}");
 
         // -----------------------------------------------------
         // Runtime should contain exactly 2 hours.
         // -----------------------------------------------------
 
         var runtime = tracker.GetCurrentRuntime();
-
         Assert.Equal(TimeSpan.FromHours(2), runtime.Morning);
         Assert.Equal(TimeSpan.Zero, runtime.Afternoon);
     }
@@ -111,16 +99,11 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
     public void Ready_DoesNotStartRuntime()
     {
         var tracker = CreateTracker();
-        DateTime timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
+        var timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
 
-
-        tracker.ProcessLine(
-            $"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" +
-            "|execution|READY");
-
+        tracker.ProcessLine($"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" + "|execution|READY");
 
         var runtime = tracker.GetCurrentRuntime();
-
         Assert.Equal(TimeSpan.Zero, runtime.Morning);
         Assert.Equal(TimeSpan.Zero, runtime.Afternoon);
     }
@@ -134,16 +117,11 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
     public void Wait_DoesNotStartRuntime()
     {
         var tracker = CreateTracker();
-        DateTime timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
+        var timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
 
-
-        tracker.ProcessLine(
-            $"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" +
-            "|execution|WAIT");
-
-
+        tracker.ProcessLine($"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" + "|execution|WAIT");
+        
         var runtime = tracker.GetCurrentRuntime();
-
         Assert.Equal(TimeSpan.Zero, runtime.Morning);
         Assert.Equal(TimeSpan.Zero, runtime.Afternoon);
     }
@@ -157,15 +135,11 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
     public void FeedHold_DoesNotStartRuntime()
     {
         var tracker = CreateTracker();
-        DateTime timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
+        var timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
         
-        tracker.ProcessLine(
-            $"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" +
-            "|execution|FEED_HOLD");
-
+        tracker.ProcessLine($"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" + "|execution|FEED_HOLD");
 
         var runtime = tracker.GetCurrentRuntime();
-
         Assert.Equal(TimeSpan.Zero, runtime.Morning);
         Assert.Equal(TimeSpan.Zero, runtime.Afternoon);
     }
@@ -179,16 +153,11 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
     public void UnknownExecutionState_DoesNotStartRuntime()
     {
         var tracker = CreateTracker();
-        DateTime timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
+        var timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
 
-
-        tracker.ProcessLine(
-            $"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" +
-            "|execution|UNKNOWN_STATE");
-
+        tracker.ProcessLine($"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" + "|execution|UNKNOWN_STATE");
 
         var runtime = tracker.GetCurrentRuntime();
-
         Assert.Equal(TimeSpan.Zero, runtime.Morning);
         Assert.Equal(TimeSpan.Zero, runtime.Afternoon);
     }
@@ -207,16 +176,12 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
     public void EndingExecutionState_WithoutActive_DoesNotCreateRuntime(string executionState)
     {
         var tracker = CreateTracker();
-        DateTime timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
+        var timestamp = new DateTime(2026, 8, 25, 10, 0, 0);
 
-
-        tracker.ProcessLine(
-            $"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" +
-            $"|execution|{executionState}");
+        tracker.ProcessLine($"{timestamp:yyyy-MM-ddTHH:mm:ss}Z" + $"|execution|{executionState}");
 
 
         var runtime = tracker.GetCurrentRuntime();
-
         Assert.Equal(TimeSpan.Zero, runtime.Morning);
         Assert.Equal(TimeSpan.Zero, runtime.Afternoon);
     }
@@ -230,21 +195,14 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
     public void MultipleActiveStates_DoNotRestartExecution()
     {
         var tracker = CreateTracker();
+        var start = new DateTime(2026, 8, 25, 10, 0, 0);
+        var end = new DateTime(2026, 8, 25, 12, 0, 0);
 
-        DateTime start = new DateTime(2026, 8, 25, 10, 0, 0);
-        DateTime end = new DateTime(2026, 8, 25, 12, 0, 0);
-
-        tracker.ProcessLine(
-            $"{start:yyyy-MM-ddTHH:mm:ss}Z|execution|ACTIVE");
-
-        tracker.ProcessLine(
-            $"{start.AddMinutes(30):yyyy-MM-ddTHH:mm:ss}Z|execution|ACTIVE");
-
-        tracker.ProcessLine(
-            $"{end:yyyy-MM-ddTHH:mm:ss}Z|execution|STOPPED");
+        tracker.ProcessLine($"{start:yyyy-MM-ddTHH:mm:ss}Z|execution|ACTIVE");
+        tracker.ProcessLine($"{start.AddMinutes(30):yyyy-MM-ddTHH:mm:ss}Z|execution|ACTIVE");
+        tracker.ProcessLine($"{end:yyyy-MM-ddTHH:mm:ss}Z|execution|STOPPED");
 
         var runtime = tracker.GetCurrentRuntime();
-
         Assert.Equal(TimeSpan.FromHours(2), runtime.Morning);
         Assert.Equal(TimeSpan.Zero, runtime.Afternoon);
     }
@@ -253,19 +211,13 @@ public class RuntimeTrackerExecutionStateTests : IDisposable
     public void ConnectionLoss_DiscardsActiveExecution()
     {
         var tracker = CreateTracker();
+        var start = new DateTime(2026, 8, 25, 10, 0, 0);
 
-        DateTime start = new DateTime(2026, 8, 25, 10, 0, 0);
-
-        tracker.ProcessLine(
-            $"{start:yyyy-MM-ddTHH:mm:ss}Z|execution|ACTIVE");
-
+        tracker.ProcessLine($"{start:yyyy-MM-ddTHH:mm:ss}Z|execution|ACTIVE");
         tracker.HandleConnectionLoss();
-
-        tracker.ProcessLine(
-            $"{start.AddHours(2):yyyy-MM-ddTHH:mm:ss}Z|execution|STOPPED");
+        tracker.ProcessLine($"{start.AddHours(2):yyyy-MM-ddTHH:mm:ss}Z|execution|STOPPED");
 
         var runtime = tracker.GetCurrentRuntime();
-
         Assert.Equal(TimeSpan.Zero, runtime.Morning);
         Assert.Equal(TimeSpan.Zero, runtime.Afternoon);
     }

@@ -59,7 +59,7 @@ Each machine has its own unique `MachineId`. This allows several collectors to c
 * Can automatically start when Windows starts.
 * Can automatically restart after an unexpected process failure.
 * Includes application version information in startup diagnostics.
-* Includes automated unit tests for runtime calculation, execution tracking, CSV writing, configuration validation, time boundaries, writer failure handling, and application logging.
+* Includes automated tests for runtime calculation, execution tracking, CSV writing, configuration validation, OMAX connection handling, Worker startup behavior, time boundaries, writer failure handling, and application logging.
 * Includes a fake OMAX server for local development and testing.
 * FakeOmax automatically updates stream timestamps to the current date when replaying test data.
 * FakeOmax supports repeated stream replays and displays cumulative expected runtime.
@@ -99,6 +99,14 @@ RuntimeCollector/
 │   └── OMAXRuntimeCollector.csproj
 │
 ├── OMAXRuntimeCollector.Tests/
+│   ├── Logger/
+│   │   ├── AppLoggerTests.cs
+│   │   └── ConsoleTestCollection.cs
+│   │
+│   ├── OmaxConnection/
+│   │   ├── ConfigurationValidatorTests.cs
+│   │   └── OmaxClientTests.cs
+│   │
 │   ├── Runtime/
 │   │   ├── RuntimeCalculatorTests.cs
 │   │   ├── Tracker/
@@ -110,8 +118,7 @@ RuntimeCollector/
 │   │       ├── RuntimeLocalCsvWriterTests.cs
 │   │       └── RuntimeSharedCsvWriterTests.cs
 │   │
-│   ├── AppLoggerTests.cs
-│   ├── ConfigurationValidatorTests.cs
+│   ├── RuntimeCollectorWorkerTests.cs
 │   └── OMAXRuntimeCollector.Tests.csproj
 │
 ├── FakeOmax/
@@ -152,9 +159,14 @@ When installed as a Windows Service, the collector runs in the background withou
 
 #### OMAXRuntimeCollector.Tests
 
-Contains the automated unit tests for the application.
+Contains the automated tests for the application.
 
-The tests are organized by the component or subsystem they cover.
+The tests are organized by the component or subsystem they cover:
+
+* `Logger/` — application logging tests and the shared xUnit console-test collection.
+* `OmaxConnection/` — configuration validation and OMAX TCP client tests.
+* `Runtime/` — runtime calculation, tracking, and CSV writer tests.
+* `RuntimeCollectorWorkerTests.cs` — tests for Worker startup and configuration handling.
 
 The test suite covers:
 
@@ -165,7 +177,11 @@ The test suite covers:
 * Shared CSV locking
 * Writer failure handling
 * Configuration validation
+* OMAX TCP connection and reconnection behavior
+* Worker startup and configuration handling
 * Application logging and log rotation
+
+The tests use temporary directories and local TCP listeners where appropriate so that connection and file-storage behavior can be tested without requiring a real OMAX machine or production network share.
 
 #### FakeOmax
 
@@ -457,39 +473,67 @@ Run all automated tests from the repository root:
 dotnet test
 ```
 
-The test suite covers:
+The test suite is organized to mirror the main application's component structure.
 
-### Runtime calculation
+## Runtime calculation
+
+`RuntimeCalculatorTests` verifies:
 
 * Runtime within a single accounting period
 * Runtime crossing accounting boundaries
+* Runtime before 05:00
+* Runtime beginning at 05:00
+* Runtime beginning or ending exactly at 14:00
+* Runtime crossing midnight
 * Multiple executions
-* Morning and afternoon calculations
+* Multiple-day execution intervals
+* Zero-duration executions
+* Invalid intervals where the end precedes the start
 
-### Runtime tracking
+## Runtime tracking
+
+The `Runtime/Tracker` tests verify:
 
 * `ACTIVE` execution events
-* Supported ending execution states
+* Supported ending execution states:
+
+    * `STOPPED`
+    * `INTERRUPTED`
+    * `OPTIONAL_STOP`
+    * `PROGRAM_STOPPED`
+    * `PROGRAM_COMPLETED`
 * Ignored non-executing states
 * Duplicate `ACTIVE` events
+* Ending states received without an active execution
 * Connection loss during active execution
 * 14:00 boundary processing
 * Midnight boundary processing
+* Runtime splitting when an execution crosses a time boundary
+* Continuation of active execution across midnight
+* Saving runtime through multiple writers
 
-### CSV writers
+## CSV writers
+
+The writer tests verify:
 
 * CSV creation
+* CSV headers
 * Morning runtime storage
 * Afternoon runtime storage
 * Updating existing rows
+* Preserving the other runtime period when updating
 * Multiple dates
 * Multiple machines
+* Machine ID being included in row identification
 * Shared CSV locking
 * Waiting for an existing lock
 * Lock timeout behavior
 * Concurrent writer behavior
+* Windows hidden lock-file behavior
 
-### Writer failure handling
+The local and shared writers are tested independently while sharing the common CSV implementation through `RuntimeCsvWriterBase`.
+
+## Writer failure handling
 
 Runtime writers declare whether they are **critical** through the `IRuntimeWriter.IsCritical` property.
 
@@ -504,23 +548,60 @@ The local CSV writer is currently critical because it is the authoritative local
 
 The shared CSV writer is non-critical because it is a secondary centralized copy.
 
-### Configuration
+## OMAX connection
 
+`OmaxClientTests` uses a real local `TcpListener` to test the client's networking behavior without requiring a real OMAX machine.
+
+The tests verify:
+
+* Receiving data from an OMAX-compatible TCP stream.
+* Passing received execution data to `RuntimeTracker`.
+* Ignoring empty lines.
+* Stopping correctly when cancellation is requested.
+* Reconnecting after a connection is lost.
+* Processing runtime data received after reconnection.
+
+Using a local TCP listener allows the actual networking code to be exercised rather than replacing the TCP layer with a mock.
+
+## Configuration
+
+`ConfigurationValidatorTests` verifies:
+
+* Valid configuration
 * Required machine ID
-* OMAX host
+* Required OMAX host
 * Valid port range
-* Reconnect delay
-* Local CSV path
-* Shared CSV path
-* Log path
+* Positive reconnect delay
+* Required local CSV path
+* Required shared CSV path
+* Required log path
+* Whitespace-only invalid values
+* Multiple configuration errors being reported together
 
-### Application logging
+## Runtime Collector Worker
 
-The logging tests verify that:
+`RuntimeCollectorWorkerTests` verifies the Worker-level startup behavior.
+
+The tests cover:
+
+* Missing configuration files
+* Invalid JSON configuration
+* Valid configuration successfully starting the collector
+* Configuration loading and validation before attempting an OMAX connection
+
+The valid configuration test uses a temporary configuration file and a local TCP listener. Successfully accepting a connection from the Worker demonstrates that the Worker was able to load and validate the configuration, construct its dependencies, start the OMAX client, and connect to the configured endpoint.
+
+The Worker accepts an optional configuration-file path so that tests can provide isolated temporary configuration files without modifying the application's published `appsettings.json`.
+
+## Application logging
+
+`AppLoggerTests` verifies that:
 
 * Informational messages are written to the log file.
 * Console logging works when `TestMode` is enabled.
 * Log files roll over when the configured file-size limit is exceeded.
+
+The logging tests use a shared xUnit collection for console-related tests because `Console.Out` is process-global and should not be modified concurrently by multiple tests.
 
 The production logger uses daily rolling with a 10 MB file-size limit and retains up to 30 log files.
 
@@ -979,6 +1060,10 @@ It manages:
 * OMAX client lifetime
 * Application shutdown
 
+The Worker accepts an optional configuration-file path internally so that automated tests can provide isolated temporary configurations without modifying the production `appsettings.json`.
+
+When no custom path is supplied, the Worker uses the `appsettings.json` file located beside the application.
+
 ## OmaxClient
 
 Handles communication with the OMAX endpoint.
@@ -1201,9 +1286,11 @@ The following have been validated through automated tests or development-environ
 * Shared writer timeout behavior
 * Concurrent writer behavior
 * Critical and non-critical writer failure handling
-* Connection and reconnection behavior
+* OMAX TCP connection handling
+* OMAX reconnection behavior
 * Connection-loss handling during active execution
 * Configuration validation
+* Worker startup and configuration handling
 * Application version reporting
 * Application logging
 * Log file size-based rolling
@@ -1221,6 +1308,8 @@ The following have been validated through automated tests or development-environ
 * FakeOmax repeated stream replay
 * FakeOmax cumulative expected runtime display
 * FakeOmax automatic timestamp date replacement
+
+The automated test suite now covers the application from individual calculation components through to higher-level Worker and TCP connection behavior. The OMAX client tests exercise the actual TCP communication layer using a local listener, while Worker tests verify configuration loading and startup using isolated temporary configuration files.
 
 The development FakeOmax stream has also been used to verify the collector's handling of multiple cutting executions and an execution crossing the 14:00 boundary.
 

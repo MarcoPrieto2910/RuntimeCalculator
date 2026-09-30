@@ -73,10 +73,23 @@ public class RuntimeSharedCsvWriter : RuntimeCsvWriterBase
         {
             try
             {
-                return new FileStream (lockFilePath,
+                FileStream lockStream = new (lockFilePath,
                     FileMode.OpenOrCreate,
                     FileAccess.ReadWrite,
                     FileShare.None);
+
+                try
+                {
+                    File.SetAttributes(lockFilePath, File.GetAttributes(lockFilePath) | FileAttributes.Hidden);
+                }
+                catch (Exception e)
+                {
+                    // Hiding the lock file is cosmetic. A failure here
+                    // must not prevent the actual lock from being acquired.
+                    _logger.Warning($"Could not hide CSV lock file {lockFilePath}: {e.Message}");
+                }
+                
+                return lockStream;
             }
             catch (IOException)
             {

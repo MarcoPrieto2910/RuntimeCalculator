@@ -48,7 +48,7 @@ public class RuntimeSharedCsvWriterTests : IDisposable
         
         writer.SaveMorningRuntime(new DateTime(2026, 9, 8), TimeSpan.FromHours(3) + TimeSpan.FromMinutes(31) + TimeSpan.FromSeconds(11));
 
-        string[] lines = File.ReadAllLines(_testFilePath);
+        var lines = File.ReadAllLines(_testFilePath);
         Assert.Equal("MachineId,Date,MorningRuntime,AfternoonRuntime", lines[0]);
         Assert.Equal("OMAX-01,2026-09-08,03:31:11,00:00:00", lines[1]);
     }
@@ -60,7 +60,7 @@ public class RuntimeSharedCsvWriterTests : IDisposable
 
         writer.SaveAfternoonRuntime(new DateTime(2026, 9, 8), TimeSpan.FromHours(2) + TimeSpan.FromMinutes(14) + TimeSpan.FromSeconds(32));
 
-        string[] lines = File.ReadAllLines(_testFilePath);
+        var lines = File.ReadAllLines(_testFilePath);
 
         Assert.Equal("MachineId,Date,MorningRuntime,AfternoonRuntime", lines[0]);
         Assert.Equal("OMAX-01,2026-09-08,00:00:00,02:14:32", lines[1]);
@@ -75,7 +75,7 @@ public class RuntimeSharedCsvWriterTests : IDisposable
         writer.SaveMorningRuntime(date, TimeSpan.FromHours(3));
         writer.SaveAfternoonRuntime(date, TimeSpan.FromHours(2));
 
-        string[] lines = File.ReadAllLines(_testFilePath);
+        var lines = File.ReadAllLines(_testFilePath);
         Assert.Single(lines.Skip(1));
         Assert.Equal("OMAX-01,2026-09-08,03:00:00,02:00:00", lines[1]);
     }
@@ -89,7 +89,7 @@ public class RuntimeSharedCsvWriterTests : IDisposable
         writer.SaveAfternoonRuntime(date, TimeSpan.FromHours(2));
         writer.SaveMorningRuntime(date, TimeSpan.FromHours(3));
 
-        string[] lines = File.ReadAllLines(_testFilePath);
+        var lines = File.ReadAllLines(_testFilePath);
         Assert.Single(lines.Skip(1));
         Assert.Equal("OMAX-01,2026-09-08,03:00:00,02:00:00", lines[1]);
     }
@@ -102,7 +102,7 @@ public class RuntimeSharedCsvWriterTests : IDisposable
         writer.SaveMorningRuntime(new DateTime(2026, 9, 8), TimeSpan.FromHours(3));
         writer.SaveMorningRuntime(new DateTime(2026, 9, 9), TimeSpan.FromHours(4));
 
-        string[] lines = File.ReadAllLines(_testFilePath);
+        var lines = File.ReadAllLines(_testFilePath);
         Assert.Equal(3, lines.Length);
         Assert.Contains("OMAX-01,2026-09-08,03:00:00,00:00:00", lines);
         Assert.Contains("OMAX-01,2026-09-09,04:00:00,00:00:00", lines);
@@ -118,7 +118,7 @@ public class RuntimeSharedCsvWriterTests : IDisposable
         writer1.SaveMorningRuntime(date, TimeSpan.FromHours(3));
         writer2.SaveMorningRuntime(date, TimeSpan.FromHours(4));
 
-        string[] lines = File.ReadAllLines(_testFilePath);
+        var lines = File.ReadAllLines(_testFilePath);
         Assert.Equal(3, lines.Length);
         Assert.Contains("OMAX-01,2026-09-08,03:00:00,00:00:00", lines);
         Assert.Contains("OMAX-02,2026-09-08,04:00:00,00:00:00", lines);
@@ -128,15 +128,15 @@ public class RuntimeSharedCsvWriterTests : IDisposable
     public async Task SaveMorningRuntime_WaitsForExistingLock()
     {
         var writer = new RuntimeSharedCsvWriter(_testFilePath, _logger, "OMAX-01");
-        string lockFilePath = _testFilePath + ".lock";
+        var lockFilePath = _testFilePath + ".lock";
 
-        using FileStream lockStream = new(
+        await using FileStream lockStream = new(
             lockFilePath,
             FileMode.OpenOrCreate,
             FileAccess.ReadWrite,
             FileShare.None);
 
-        Task writeTask = Task.Run(() =>
+        var writeTask = Task.Run(() =>
         {
             writer.SaveMorningRuntime(new DateTime(2026, 9, 8), TimeSpan.FromHours(3));
         });
@@ -146,11 +146,12 @@ public class RuntimeSharedCsvWriterTests : IDisposable
         Assert.False(writeTask.IsCompleted);
 
         // Release the lock.
-        lockStream.Dispose();
+        await lockStream.DisposeAsync();
         await writeTask;
 
         Assert.True(File.Exists(_testFilePath));
-        string[] lines = File.ReadAllLines(_testFilePath);
+        Assert.True(File.Exists(lockFilePath));
+        var lines = await File.ReadAllLinesAsync(_testFilePath);
         Assert.Equal("OMAX-01,2026-09-08,03:00:00,00:00:00", lines[1]);
     }
     
@@ -161,19 +162,19 @@ public class RuntimeSharedCsvWriterTests : IDisposable
         var writer2 = new RuntimeSharedCsvWriter(_testFilePath, _logger, "OMAX-02");
         DateTime date = new(2026, 9, 8);
 
-        Task writeTask1 = Task.Run(() =>
+        var writeTask1 = Task.Run(() =>
         {
             writer1.SaveMorningRuntime(date, TimeSpan.FromHours(3));
         });
 
-        Task writeTask2 = Task.Run(() =>
+        var writeTask2 = Task.Run(() =>
         {
             writer2.SaveMorningRuntime(date, TimeSpan.FromHours(4));
         });
 
         await Task.WhenAll(writeTask1, writeTask2);
 
-        string[] lines = File.ReadAllLines(_testFilePath);
+        var lines = await File.ReadAllLinesAsync(_testFilePath);
         Assert.Equal(3, lines.Length);
         Assert.Contains("OMAX-01,2026-09-08,03:00:00,00:00:00", lines);
         Assert.Contains("OMAX-02,2026-09-08,04:00:00,00:00:00", lines);
@@ -183,7 +184,7 @@ public class RuntimeSharedCsvWriterTests : IDisposable
     public void SaveMorningRuntime_ThrowsWhenLockTimeoutIsReached()
     {
         var writer = new RuntimeSharedCsvWriter(_testFilePath, _logger, "OMAX-01", lockTimeoutMilliseconds: 500, lockRetryDelayMilliseconds: 50);
-        string lockFilePath = _testFilePath + ".lock";
+        var lockFilePath = _testFilePath + ".lock";
 
         using FileStream lockStream = new(
             lockFilePath,
@@ -197,5 +198,23 @@ public class RuntimeSharedCsvWriterTests : IDisposable
         });
 
         Assert.False(File.Exists(_testFilePath));
+        Assert.True(File.Exists(lockFilePath));
+    }
+    
+    [Fact]
+    public void SaveMorningRuntime_HidesLockFile()
+    {
+        // The collector targets Windows in production, where the
+        // Hidden file attribute is supported.
+        if (!OperatingSystem.IsWindows()) return;
+
+        var writer = new RuntimeSharedCsvWriter(_testFilePath, _logger, "OMAX-01");
+
+        writer.SaveMorningRuntime(new DateTime(2026, 9, 8), TimeSpan.FromHours(3));
+
+        var lockFilePath = _testFilePath + ".lock";
+        Assert.True(File.Exists(lockFilePath));
+        var attributes = File.GetAttributes(lockFilePath);
+        Assert.True(attributes.HasFlag(FileAttributes.Hidden));
     }
 }

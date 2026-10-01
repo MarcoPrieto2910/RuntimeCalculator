@@ -89,7 +89,7 @@ public class RuntimeCollectorWorker : BackgroundService
             return;
         }
 
-        AppLogger logger = new(settings.Storage.LogPath, settings.TestMode);
+        using AppLogger logger = new(settings.Storage.LogPath, settings.TestMode);
         Version? applicationVersion = Assembly.GetExecutingAssembly().GetName().Version;
         
         logger.Info("OMAX Runtime Collector");

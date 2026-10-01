@@ -5,7 +5,7 @@ Write-Host "OMAX Runtime Collector - Publish"
 Write-Host "========================================"
 Write-Host ""
 
-cd..
+Set-Location (Join-Path $PSScriptRoot "..")
 
 dotnet publish `
     -c Release `

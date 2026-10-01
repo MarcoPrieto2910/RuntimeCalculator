@@ -77,6 +77,10 @@ sc.exe create $ServiceName `
     start= auto `
     displayname= "`"$DisplayName`"" | Out-Null
 
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to create Windows Service."
+}
+
 # ---------------------------------------------------------
 # Configure recovery
 # ---------------------------------------------------------

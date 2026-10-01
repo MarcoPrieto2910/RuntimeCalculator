@@ -10,7 +10,6 @@ public class RuntimeTracker
 {
     private readonly IReadOnlyList<IRuntimeWriter> _runtimeWriters;
     private readonly AppLogger _logger;
-    private readonly RuntimeCalculator _runtimeCalculator;
     
     private static readonly HashSet<string> EndingExecutionStates =
         new(StringComparer.OrdinalIgnoreCase)
@@ -40,15 +39,10 @@ public class RuntimeTracker
     /// <param name="logger">
     /// Logger used to record runtime tracking events and errors.
     /// </param>
-    /// <param name="runtimeCalculator">
-    /// Calculator used to determine how execution time is divided
-    /// between the morning and afternoon accounting periods.
-    /// </param>
-    public RuntimeTracker(IReadOnlyList<IRuntimeWriter> runtimeWriters, AppLogger logger, RuntimeCalculator runtimeCalculator)
+    public RuntimeTracker(IReadOnlyList<IRuntimeWriter> runtimeWriters, AppLogger logger)
     {
         _runtimeWriters = runtimeWriters;
         _logger = logger;
-        _runtimeCalculator = runtimeCalculator;
     }
 
 
@@ -194,7 +188,7 @@ public class RuntimeTracker
             // The machine did not stop. Move the execution start to midnight
             // so subsequent runtime belongs to the new accounting day.
             _executionStart = boundary;
-            _logger.Info("Machine is still active. Continuing into afternoon period.");
+            _logger.Info("Machine is still active. Continuing into new day.");
         }
 
 
@@ -245,21 +239,20 @@ public class RuntimeTracker
         if (end <= start)
             return;
         
-        _logger.Info($"Execution duration: " + $"{FormatDuration(end - start)}");
+        _logger.Info($"Execution duration: {FormatDuration(end - start)}");
 
-        (TimeSpan morning, TimeSpan afternoon) =
-            _runtimeCalculator.Calculate(start, end);
+        (TimeSpan morning, TimeSpan afternoon) = RuntimeCalculator.Calculate(start, end);
 
         if (morning > TimeSpan.Zero)
         {
             _morningRuntime += morning;
-            _logger.Info($"Morning runtime +" + $"{FormatDuration(morning)}");
+            _logger.Info($"Morning runtime +{FormatDuration(morning)}");
         }
         
         if (afternoon > TimeSpan.Zero)
         {
             _afternoonRuntime += afternoon;
-            _logger.Info($"Afternoon runtime +" + $"{FormatDuration(afternoon)}");
+            _logger.Info($"Afternoon runtime +{FormatDuration(afternoon)}");
         }
     }
 

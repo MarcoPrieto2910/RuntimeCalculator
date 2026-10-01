@@ -18,7 +18,7 @@ public class OmaxClientTests : IDisposable
         Directory.CreateDirectory(_testDirectory);
         _logPath = Path.Combine(_testDirectory, "test.log");
         _logger = new AppLogger(_logPath, testMode: false);
-        _runtimeTracker = new RuntimeTracker([], _logger, new RuntimeCalculator());
+        _runtimeTracker = new RuntimeTracker([], _logger);
     }
 
     public void Dispose()

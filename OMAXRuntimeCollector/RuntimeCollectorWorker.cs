@@ -106,8 +106,7 @@ public class RuntimeCollectorWorker : BackgroundService
         RuntimeSharedCsvWriter sharedCsvWriter = new(settings.Storage.SharedCsvPath, logger, settings.MachineId); 
         IReadOnlyList<IRuntimeWriter> runtimeWriters = [ localCsvWriter, sharedCsvWriter ];
         
-        RuntimeCalculator runtimeCalculator = new();
-        RuntimeTracker runtimeTracker = new(runtimeWriters, logger, runtimeCalculator);
+        RuntimeTracker runtimeTracker = new(runtimeWriters, logger);
 
         // Run the boundary monitor alongside the OMAX connection so that
         // runtime can be split at 14:00 and midnight even while the machine

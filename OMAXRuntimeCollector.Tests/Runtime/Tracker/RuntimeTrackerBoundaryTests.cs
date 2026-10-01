@@ -28,9 +28,8 @@ public class RuntimeTrackerBoundaryTests : IDisposable
     private RuntimeTracker CreateTracker()
     {
         var writer = new RuntimeLocalCsvWriter(_csvPath, _logger, "OMAX-01");
-        var calculator = new RuntimeCalculator();
 
-        return new RuntimeTracker([writer], _logger, calculator);
+        return new RuntimeTracker([writer], _logger);
     }
 
 

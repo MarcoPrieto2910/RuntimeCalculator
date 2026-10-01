@@ -7,7 +7,6 @@ public class RuntimeTrackerWriterTests : IDisposable
 {
     private readonly string _testDirectory;
     private readonly AppLogger _logger;
-    private readonly RuntimeCalculator _runtimeCalculator;
 
     public RuntimeTrackerWriterTests()
     {
@@ -19,7 +18,6 @@ public class RuntimeTrackerWriterTests : IDisposable
         Directory.CreateDirectory(_testDirectory);
         var logPath = Path.Combine(_testDirectory, "test.log");
         _logger = new AppLogger(logPath);
-        _runtimeCalculator = new RuntimeCalculator();
     }
 
     public void Dispose()
@@ -76,7 +74,7 @@ public class RuntimeTrackerWriterTests : IDisposable
             ThrowOnMorningSave = true
         };
 
-        var tracker = new RuntimeTracker([writer], _logger, _runtimeCalculator);
+        var tracker = new RuntimeTracker([writer], _logger);
         var exception = Record.Exception(() =>
         {
             tracker.ProcessTimeBoundary(new DateTime(2026, 9, 8, 14, 0, 0));
@@ -94,7 +92,7 @@ public class RuntimeTrackerWriterTests : IDisposable
             ThrowOnMorningSave = true
         };
 
-        var tracker = new RuntimeTracker([writer], _logger, _runtimeCalculator);
+        var tracker = new RuntimeTracker([writer], _logger);
 
         Assert.Throws<IOException>(() =>
         {
@@ -112,7 +110,7 @@ public class RuntimeTrackerWriterTests : IDisposable
             ThrowOnMorningSave = true
         };
         var localWriter = new TestRuntimeWriter(isCritical: true);
-        var tracker = new RuntimeTracker([sharedWriter, localWriter], _logger, _runtimeCalculator);
+        var tracker = new RuntimeTracker([sharedWriter, localWriter], _logger);
 
         tracker.ProcessTimeBoundary(new DateTime(2026, 9, 8, 14, 0, 0));
 
@@ -128,7 +126,7 @@ public class RuntimeTrackerWriterTests : IDisposable
             ThrowOnMorningSave = true
         };
         var anotherWriter = new TestRuntimeWriter(isCritical: false);
-        var tracker = new RuntimeTracker([localWriter, anotherWriter], _logger, _runtimeCalculator);
+        var tracker = new RuntimeTracker([localWriter, anotherWriter], _logger);
 
         Assert.Throws<IOException>(() =>
         {

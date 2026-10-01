@@ -1,11 +1,10 @@
 ﻿namespace OMAXRuntimeCollector.Runtime;
 
-
 /// <summary>
 /// Calculates how much execution time falls within the collector's
 /// morning and afternoon accounting periods.
 /// </summary>
-public class RuntimeCalculator
+public static class RuntimeCalculator
 {
     
     
@@ -20,13 +19,13 @@ public class RuntimeCalculator
     /// <c>Morning</c>, and the runtime between 14:00 and midnight in
     /// <c>Afternoon</c>.
     /// </returns>
-    public (TimeSpan Morning, TimeSpan Afternoon) Calculate(DateTime start, DateTime end)
+    public static (TimeSpan Morning, TimeSpan Afternoon) Calculate(DateTime start, DateTime end)
     {
+        if (end <= start)
+            return (TimeSpan.Zero, TimeSpan.Zero);
+
         TimeSpan morningRuntime = TimeSpan.Zero;
         TimeSpan afternoonRuntime = TimeSpan.Zero;
-
-        if (end <= start)
-            return (morningRuntime, afternoonRuntime);
 
         DateTime current = start;
 
@@ -68,7 +67,6 @@ public class RuntimeCalculator
 
 
     #region HELPERS
-
         private static DateTime Max(DateTime a, DateTime b)
         {
             return a > b ? a : b;
@@ -79,6 +77,5 @@ public class RuntimeCalculator
         {
             return a < b ? a : b;
         }
-
     #endregion
 }

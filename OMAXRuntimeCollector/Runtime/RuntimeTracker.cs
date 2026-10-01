@@ -106,7 +106,7 @@ public class RuntimeTracker
             if (_executionStart == null)
             {
                 _executionStart = timestamp;
-                _logger.Info($"Machine started executing at " + $"{timestamp:yyyy-MM-dd HH:mm:ss}");
+                _logger.Info($"Machine started executing at {timestamp:yyyy-MM-dd HH:mm:ss}");
             }
 
             return;
@@ -170,11 +170,11 @@ public class RuntimeTracker
             // The machine did not stop. Move the execution start to 14:00
             // so subsequent runtime is attributed to the afternoon period.
             _executionStart = boundary;
-            _logger.Info("Machine is still active. " + "Continuing into afternoon period.");
+            _logger.Info("Machine is still active. Continuing into afternoon period.");
         }
 
 
-        _logger.Info($"Morning runtime: " + $"{FormatDuration(_morningRuntime)}");
+        _logger.Info($"Morning runtime: {FormatDuration(_morningRuntime)}");
 
         foreach (IRuntimeWriter writer in _runtimeWriters)
             SaveRuntime(writer, () => writer.SaveMorningRuntime(boundary.Date, _morningRuntime));
@@ -194,14 +194,14 @@ public class RuntimeTracker
             // The machine did not stop. Move the execution start to midnight
             // so subsequent runtime belongs to the new accounting day.
             _executionStart = boundary;
-            _logger.Info("Machine is still active. " + "Continuing into new day.");
+            _logger.Info("Machine is still active. Continuing into afternoon period.");
         }
 
 
         DateTime previousDay = boundary.Date.AddDays(-1);
 
 
-        _logger.Info($"Afternoon runtime: " + $"{FormatDuration(_afternoonRuntime)}");
+        _logger.Info($"Afternoon runtime: {FormatDuration(_afternoonRuntime)}");
 
         foreach (var writer in _runtimeWriters)
             SaveRuntime(writer, () => writer.SaveAfternoonRuntime(previousDay, _afternoonRuntime));
@@ -211,7 +211,7 @@ public class RuntimeTracker
         _morningRuntime = TimeSpan.Zero;
         _afternoonRuntime = TimeSpan.Zero;
         
-        _logger.Info($"Starting new runtime day: " + $"{boundary:yyyy-MM-dd}");
+        _logger.Info($"Starting new runtime day: {boundary:yyyy-MM-dd}");
     }
 
 

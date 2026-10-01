@@ -56,10 +56,7 @@ public class OmaxClient
             }
             catch (Exception ex)
             {
-                _logger.Error(
-                    $"Unable to connect to OMAX at " +
-                    $"{_settings.Host}:{_settings.Port}: " +
-                    $"{ex.Message}");
+                _logger.Error($"Unable to connect to OMAX at {_settings.Host}:{_settings.Port}: {ex.Message}");
             }
 
 
@@ -71,9 +68,7 @@ public class OmaxClient
             // the OMAX connection was unavailable, so the active execution
             // state must be discarded.
             _runtimeTracker.HandleConnectionLoss();
-            _logger.Warning($"Connection to OMAX lost. " +
-                            $"Retrying in " +
-                            $"{_settings.ReconnectDelaySeconds} seconds.");
+            _logger.Warning($"Connection to OMAX lost. Retrying in {_settings.ReconnectDelaySeconds} seconds.");
             
             try
             {
@@ -106,7 +101,7 @@ public class OmaxClient
     /// </returns>
     private async Task ConnectAndReadAsync(CancellationToken cancellationToken, bool wasConnected)
     {
-        _logger.Info($"Connecting to OMAX at " + $"{_settings.Host}:{_settings.Port}");
+        _logger.Info($"Connecting to OMAX at {_settings.Host}:{_settings.Port}");
         using TcpClient client = new();
 
         await client.ConnectAsync(_settings.Host, _settings.Port, cancellationToken);
@@ -132,9 +127,7 @@ public class OmaxClient
             }
             catch (Exception ex)
             {
-                _logger.Error($"Error while reading from OMAX at " +
-                              $"{_settings.Host}:{_settings.Port}: " +
-                              $"{ex.Message}");
+                _logger.Error($"Error while reading from OMAX at {_settings.Host}:{_settings.Port}: {ex.Message}");
                 return;
             }
 

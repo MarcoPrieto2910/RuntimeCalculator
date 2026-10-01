@@ -96,7 +96,8 @@ RuntimeCollector/
 │   ├── Program.cs
 │   ├── RuntimeCollectorWorker.cs
 │   ├── appsettings.json
-│   └── OMAXRuntimeCollector.csproj
+│   ├── OMAXRuntimeCollector.csproj
+│   └── OMAXRuntimeCollector.sln
 │
 ├── OMAXRuntimeCollector.Tests/
 │   ├── Logger/
@@ -470,7 +471,7 @@ If the collector disconnects unexpectedly, FakeOmax closes the current client co
 Run all automated tests from the repository root:
 
 ```powershell
-dotnet test
+dotnet test OMAXRuntimeCollector/OMAXRuntimeCollector.sln
 ```
 
 The test suite is organized to mirror the main application's component structure.
@@ -977,7 +978,7 @@ The shared writer uses a companion lock file:
 P:\OMAXRuntimeCollector\runtime.csv.lock
 ```
 
-The lock prevents multiple collectors from simultaneously reading and modifying the shared CSV.
+The lock prevents multiple collectors from simultaneously modifying the shared CSV.
 
 The lock is implemented using an open file handle with exclusive access. The presence of the `.lock` file itself does not indicate that the file is currently locked; the lock is held by the active file handle.
 

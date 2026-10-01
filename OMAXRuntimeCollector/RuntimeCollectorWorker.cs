@@ -45,12 +45,13 @@ public class RuntimeCollectorWorker : BackgroundService
             Console.WriteLine($"ERROR: {configFile} was not found.");
             return;
         }
-        
-        string configurationJson = await File.ReadAllTextAsync(configFile, stoppingToken);
+
         OmaxSettings? settings;
         
         try
         {
+            string configurationJson = await File.ReadAllTextAsync(configFile, stoppingToken);
+
             settings =
                 JsonSerializer.Deserialize<OmaxSettings>(
                     configurationJson,
@@ -59,9 +60,13 @@ public class RuntimeCollectorWorker : BackgroundService
                         PropertyNameCaseInsensitive = true
                     });
         }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
         catch (Exception ex)
         {
-            Console.WriteLine($"ERROR: Could not read configuration: " + $"{ex.Message}");
+            Console.WriteLine($"ERROR: Could not read configuration: {ex.Message}");
             return;
         }
 
@@ -146,8 +151,8 @@ public class RuntimeCollectorWorker : BackgroundService
         logger.Info("--------------------------------");
         logger.Info("Runtime summary");
         logger.Info("--------------------------------");
-        logger.Info($"05:00 - 14:00 : " + $"{RuntimeTracker.FormatDuration(morning)}");
-        logger.Info($"14:00 - 00:00 : " + $"{RuntimeTracker.FormatDuration(afternoon)}");
+        logger.Info($"05:00 - 14:00 : {RuntimeTracker.FormatDuration(morning)}");
+        logger.Info($"14:00 - 00:00 : {RuntimeTracker.FormatDuration(afternoon)}");
         logger.Info("--------------------------------");
         logger.Info("OMAX Runtime Collector stopped.");
     }

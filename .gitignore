@@ -28,3 +28,6 @@ collector.log
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local development configuration
+appsettings.Development.json

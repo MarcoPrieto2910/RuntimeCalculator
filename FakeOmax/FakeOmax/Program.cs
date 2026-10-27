@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Globalization;
 
-const int port = 5000;
+const int port = 5038;
 const string filePath = "stream-test2.txt";
 
 TimeSpan expectedMorningRuntime = new(3, 31, 11);

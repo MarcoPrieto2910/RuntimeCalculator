@@ -1,8 +1,23 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Globalization;
+using System.Text.Json;
 
-const int port = 5038;
+string configPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../OmaxRuntimeCollector/appsettings.Development.json"));
+if (!File.Exists(configPath))
+{
+    Console.WriteLine($"ERROR: Development configuration not found: {configPath}");
+    return;
+}
+
+using JsonDocument configDocument = JsonDocument.Parse(
+    File.ReadAllText(configPath));
+
+int port = configDocument.RootElement
+    .GetProperty("Omax")
+    .GetProperty("Port")
+    .GetInt32();
+
 const string filePath = "stream-test2.txt";
 
 TimeSpan expectedMorningRuntime = new(3, 31, 11);

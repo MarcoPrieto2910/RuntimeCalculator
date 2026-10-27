@@ -1,31 +1,49 @@
 # OMAX Runtime Collector
 
-A C# application for monitoring the runtime of an OMAX waterjet cutting machine through its MTConnect machine data stream.
+A C# application for monitoring the runtime of an OMAX waterjet cutting
+machine through its MTConnect machine data stream.
 
-The application connects to an OMAX computer, listens for execution state changes, calculates how long the machine has been actively executing during defined work periods, and stores the results in CSV files.
+The application connects to an OMAX computer, listens for execution
+state changes, calculates how long the machine has been actively
+executing during defined work periods, and stores the results in CSV
+files.
 
-The collector runs continuously as a **Windows Service**, automatically starts with Windows, reconnects when the OMAX endpoint becomes unavailable, and can recover automatically if the collector process fails.
+The collector runs continuously as a **Windows Service**, automatically
+starts with Windows, reconnects when the OMAX endpoint becomes
+unavailable, and can recover automatically if the collector process
+fails.
 
-The application supports both **local runtime storage** on each OMAX computer and a **shared CSV file** on the company's network drive so that runtime data from multiple machines can be accessed from a centralized location.
+The application supports both **local runtime storage** on each OMAX
+computer and a **shared CSV file** on the company's network drive so
+that runtime data from multiple machines can be accessed from a
+centralized location.
 
----
+------------------------------------------------------------------------
 
 ## Overview
 
-The **OMAX Runtime Collector** was developed to track machine usage without requiring a third-party monitoring application.
+The **OMAX Runtime Collector** was developed to track machine usage
+without requiring a third-party monitoring application.
 
-The collector listens to the OMAX machine's MTConnect stream and identifies when a cutting operation starts and stops. From these events, it calculates the machine's active runtime and separates it into two daily accounting periods:
+The collector listens to the OMAX machine's MTConnect stream and
+identifies when a cutting operation starts and stops. From these events,
+it calculates the machine's active runtime and separates it into two
+daily accounting periods:
 
-* **Morning:** 05:00 → 14:00
-* **Afternoon:** 14:00 → 00:00
+-   **Morning:** 05:00 → 14:00
+-   **Afternoon:** 14:00 → 00:00
 
 Runtime data is saved once the corresponding accounting period ends.
 
-The collector is designed to run continuously in the background as a Windows Service. It automatically reconnects if the OMAX endpoint becomes unavailable and can be restarted automatically by Windows if the collector process unexpectedly terminates.
+The collector is designed to run continuously in the background as a
+Windows Service. It automatically reconnects if the OMAX endpoint
+becomes unavailable and can be restarted automatically by Windows if the
+collector process unexpectedly terminates.
 
-Each machine has its own unique `MachineId`. This allows several collectors to contribute their runtime data to a single shared CSV file.
+Each machine has its own unique `MachineId`. This allows several
+collectors to contribute their runtime data to a single shared CSV file.
 
----
+------------------------------------------------------------------------
 
 ## Features
 
@@ -36,7 +54,6 @@ Each machine has its own unique `MachineId`. This allows several collectors to c
 * Calculates runtime without relying on a dedicated runtime value from the machine.
 * Separates runtime into morning and afternoon accounting periods.
 * Handles executions crossing:
-
     * 05:00
     * 14:00
     * Midnight
@@ -69,7 +86,7 @@ Each machine has its own unique `MachineId`. This allows several collectors to c
 
 ## Repository Structure
 
-```text
+``` text
 RuntimeCollector/
 │
 ├── OMAXRuntimeCollector/
@@ -96,6 +113,7 @@ RuntimeCollector/
 │   ├── Program.cs
 │   ├── RuntimeCollectorWorker.cs
 │   ├── appsettings.json
+│   ├── appsettings.Development.json (local, ignored by Git)
 │   ├── OMAXRuntimeCollector.csproj
 │   └── OMAXRuntimeCollector.sln
 │
@@ -125,8 +143,6 @@ RuntimeCollector/
 ├── FakeOmax/
 │   └── FakeOmax/
 │       ├── Program.cs
-│       ├── appsettings.json
-│       ├── appsettings.Development.json
 │       ├── stream-test.txt
 │       ├── stream-test2.txt
 │       └── FakeOmax.csproj
@@ -141,22 +157,26 @@ RuntimeCollector/
 
 The main application.
 
-It connects to the OMAX endpoint, processes machine events, calculates runtime, and writes the results to local and shared CSV storage.
+It connects to the OMAX endpoint, processes machine events, calculates
+runtime, and writes the results to local and shared CSV storage.
 
-The application is hosted using the .NET Generic Host and runs its collection logic through `RuntimeCollectorWorker`, which derives from `BackgroundService`.
+The application is hosted using the .NET Generic Host and runs its
+collection logic through `RuntimeCollectorWorker`, which derives from
+`BackgroundService`.
 
 During startup, the application:
 
-1. Loads `appsettings.json`.
-2. Deserializes the configuration.
-3. Validates the configuration.
-4. Creates the application logger.
-5. Creates the runtime writers.
-6. Creates the runtime tracker.
-7. Starts the time-boundary monitor.
-8. Connects to the OMAX endpoint.
+1.  Selects `appsettings.Development.json` when `DOTNET_ENVIRONMENT=Development`; otherwise selects `appsettings.json`.
+2.  Loads and deserializes the selected configuration.
+3.  Validates the configuration.
+4.  Creates the application logger.
+5.  Creates the runtime writers.
+6.  Creates the runtime tracker.
+7.  Starts the time-boundary monitor.
+8.  Connects to the OMAX endpoint.
 
-When installed as a Windows Service, the collector runs in the background without requiring a user to manually launch the application.
+When installed as a Windows Service, the collector runs in the
+background without requiring a user to manually launch the application.
 
 #### OMAXRuntimeCollector.Tests
 
@@ -182,43 +202,76 @@ The test suite covers:
 * Worker startup and configuration handling
 * Application logging and log rotation
 
-The tests use temporary directories and local TCP listeners where appropriate so that connection and file-storage behavior can be tested without requiring a real OMAX machine or production network share.
+The tests use temporary directories and local TCP listeners where
+appropriate so that connection and file-storage behavior can be tested
+without requiring a real OMAX machine or production network share.
 
 #### FakeOmax
 
-A lightweight local server used to simulate the OMAX endpoint during development.
+A lightweight local server used to simulate the OMAX endpoint during
+development.
 
-Instead of connecting to a real machine, it reads test data from text files and exposes the simulated stream through a TCP endpoint.
+Instead of connecting to a real machine, it reads test data from text
+files and exposes the simulated stream through a TCP endpoint.
 
-FakeOmax maintains the TCP connection while waiting between stream replays, which more closely resembles the behavior observed from the real OMAX stream.
+FakeOmax maintains the TCP connection while waiting between stream
+replays, which more closely resembles the behavior observed from the
+real OMAX stream.
 
-When a collector connects, the first stream replay begins automatically. After the replay finishes, the user can press **Enter** followed by Enter to replay the stream again, or press **Q** followed by Enter to stop FakeOmax.
+When a collector connects, the first stream replay begins automatically.
+After the replay finishes, the user can press **Enter** followed by
+Enter to replay the stream again, or press **Q** followed by Enter to
+stop FakeOmax.
 
-Before sending each line, FakeOmax replaces the date portion of valid timestamps with the current date while preserving the original time, fractional seconds, and remaining stream data.
+Before sending each line, FakeOmax replaces the date portion of valid
+timestamps with the current date while preserving the original time,
+fractional seconds, and remaining stream data.
 
-FakeOmax also maintains cumulative expected runtime values for the current test session. These values are predetermined for each test stream rather than calculated independently by FakeOmax.
+FakeOmax also maintains cumulative expected runtime values for the
+current test session. These values are predetermined for each test
+stream rather than calculated independently by FakeOmax.
 
----
+------------------------------------------------------------------------
 
 # Requirements
 
-* Windows
-* .NET 9 SDK
-* Access to an OMAX machine running the required MTConnect TCP endpoint for production use
+-   .NET 9 SDK for development and automated testing.
+-   Windows for installing and running the collector as a Windows
+    Service.
+-   Access to an OMAX machine running the required MTConnect TCP
+    endpoint for production use.
 
-For development and automated testing, an OMAX machine is not required because the `FakeOmax` project can simulate the machine connection.
+Development and automated testing can be performed on Windows, macOS, or
+Linux without a real OMAX machine because `FakeOmax` simulates the
+machine's TCP stream.
 
-For deployment to the current OMAX environment, the application is published as a **self-contained 32-bit (`win-x86`) executable**.
+For deployment to the current OMAX environment, the collector is
+published as a **self-contained 32-bit (`win-x86`) executable**.
 
----
+------------------------------------------------------------------------
 
 # Configuration
 
-The collector uses `appsettings.json` for its configuration.
+The collector uses `appsettings.json` for production by default. For
+local development, `Program.cs` selects `appsettings.Development.json`
+when the `DOTNET_ENVIRONMENT` environment variable is set to
+`Development`.
 
-Example:
+The worker reads the selected JSON file directly; it does not
+automatically merge the development file with the production file. Keep
+the development file complete enough to run the collector independently.
 
-```json
+The local `appsettings.Development.json` is intentionally ignored by Git
+so development paths and settings are not committed. Create this file in
+the `OMAXRuntimeCollector` project directory on each development
+machine. Do not put production network-share settings in it.
+
+## Production configuration
+
+The production `appsettings.json` should retain the real machine's
+settings. A typical production configuration is:
+
+``` json
 {
   "MachineId": "OMAX-01",
   "Omax": {
@@ -235,6 +288,65 @@ Example:
 }
 ```
 
+## Development configuration
+
+Create `OMAXRuntimeCollector/appsettings.Development.json` for local
+testing. For example:
+
+``` json
+{
+  "MachineId": "OMAX-DEV",
+  "Omax": {
+    "Host": "localhost",
+    "Port": 5038,
+    "ReconnectDelaySeconds": 5
+  },
+  "Storage": {
+    "LocalCsvPath": "/tmp/OMAXRuntimeCollector/runtime-local.csv",
+    "SharedCsvPath": "/tmp/OMAXRuntimeCollector/runtime-shared.csv",
+    "LogPath": "/tmp/OMAXRuntimeCollector/collector.log"
+  },
+  "TestMode": true
+}
+```
+
+Adjust the storage paths for your operating system. On macOS and Linux,
+`/tmp` is temporary storage and may be cleared; use a suitable local
+development directory if you need to retain test output. Keep the local
+and shared CSV paths different so the two writers do not target the same
+file.
+
+The port in `Omax.Port` is used by both the collector and `FakeOmax`.
+FakeOmax reads this value from the collector project's development
+configuration, so change the port in one place only. Choose a free TCP
+port for local testing.
+
+In Rider, set `DOTNET_ENVIRONMENT=Development` in the collector's Run
+Configuration under **Environment variables**. Alternatively, from the
+repository root:
+
+**macOS/Linux:**
+
+``` bash
+DOTNET_ENVIRONMENT=Development dotnet run --project OMAXRuntimeCollector
+```
+
+**PowerShell:**
+
+``` powershell
+$env:DOTNET_ENVIRONMENT = "Development"
+dotnet run --project OMAXRuntimeCollector
+```
+
+If `DOTNET_ENVIRONMENT` is not set to `Development`, the application
+uses `appsettings.json`.
+
+The development configuration file must exist locally before running
+either the collector in Development mode or FakeOmax, because FakeOmax
+reads `Omax.Port` from that file. The project file copies the
+development file to the collector's build output when present and
+excludes it from published output.
+
 ## Machine ID
 
 `MachineId` identifies the OMAX machine associated with the collector.
@@ -243,15 +355,16 @@ Each OMAX machine should have its own unique identifier.
 
 For example:
 
-```json
+``` json
 "MachineId": "OMAX-01"
 ```
 
-The machine ID is included in the CSV output so that runtime data from multiple machines can be distinguished when stored together.
+The machine ID is included in the CSV output so that runtime data from
+multiple machines can be distinguished when stored together.
 
 For example:
 
-```csv
+``` csv
 MachineId,Date,MorningRuntime,AfternoonRuntime
 OMAX-01,2026-09-17,03:31:11,00:30:48
 OMAX-02,2026-09-17,02:14:32,01:21:05
@@ -279,11 +392,12 @@ Environment variables such as `%ProgramData%` are expanded automatically.
 
 The default local CSV location is:
 
-```text
+``` text
 %ProgramData%\OMAXRuntimeCollector\runtime.csv
 ```
 
-This file is the **authoritative local runtime storage** for the collector.
+This file is the **authoritative local runtime storage** for the
+collector.
 
 Each OMAX computer maintains its own local copy.
 
@@ -291,25 +405,32 @@ Each OMAX computer maintains its own local copy.
 
 The default shared CSV location is:
 
-```text
+``` text
 P:\OMAXRuntimeCollector\runtime.csv
 ```
 
-The shared CSV is intended to contain runtime data from all OMAX machines.
+The shared CSV is intended to contain runtime data from all OMAX
+machines.
 
-The current production environment provides the `P:\` drive to the OMAX computers and office computers with read/write access.
+The current production environment provides the `P:\` drive to the OMAX
+computers and office computers with read/write access.
 
-Each collector uses its `MachineId` to identify its own rows in the shared CSV.
+Each collector uses its `MachineId` to identify its own rows in the
+shared CSV.
 
-The shared storage is considered a secondary copy. If the network drive becomes temporarily unavailable, the collector continues operating and the local CSV remains available.
+The shared storage is considered a secondary copy. If the network drive
+becomes temporarily unavailable, the collector continues operating and
+the local CSV remains available.
 
-The actual multi-computer network-share integration still needs to be validated on the production network.
+The actual multi-computer network-share integration still needs to be
+validated on the production network.
 
 ## TestMode
 
-`TestMode` controls whether application log messages are also written to the console.
+`TestMode` controls whether application log messages are also written to
+the console.
 
-```json
+``` json
 "TestMode": true
 ```
 
@@ -317,17 +438,18 @@ is useful during development and local testing.
 
 For Windows Service deployment, it should normally be:
 
-```json
+``` json
 "TestMode": false
 ```
 
 The application log is still written to the configured log file.
 
----
+------------------------------------------------------------------------
 
 # Configuration Validation
 
-The application validates its configuration during startup before attempting to connect to the OMAX endpoint.
+The application validates its configuration during startup before
+attempting to connect to the OMAX endpoint.
 
 The following settings are validated:
 
@@ -339,67 +461,103 @@ The following settings are validated:
 * `Storage.SharedCsvPath` must not be empty.
 * `Storage.LogPath` must not be empty.
 
-The application validates that the shared path is configured, but does **not** require the network share to be reachable during startup.
+The application validates that the shared path is configured, but does
+**not** require the network share to be reachable during startup.
 
-This allows the collector to continue operating with local storage if the shared network drive is temporarily unavailable.
+This allows the collector to continue operating with local storage if
+the shared network drive is temporarily unavailable.
 
-If configuration errors are detected, the application reports the errors and stops before attempting to connect to the OMAX endpoint.
+If configuration errors are detected, the application reports the errors
+and stops before attempting to connect to the OMAX endpoint.
 
----
+------------------------------------------------------------------------
 
 # Running the Application
 
-For development and testing, the application can be run directly from the project directory:
+For local development, first create
+`OMAXRuntimeCollector/appsettings.Development.json` as described in
+[Development configuration](#development-configuration), then set
+`DOTNET_ENVIRONMENT=Development`.
 
-```powershell
-dotnet run
+From the repository root, run the collector using the appropriate
+command:
+
+**macOS/Linux:**
+
+``` bash
+DOTNET_ENVIRONMENT=Development dotnet run --project OMAXRuntimeCollector
 ```
 
-The application will load and validate its configuration, connect to the configured OMAX endpoint, and begin monitoring machine activity.
+**PowerShell:**
 
-To stop the application when running interactively, press:
-
-```text
-Ctrl+C
-```
-
-When deployed as a Windows Service, the application is instead started and stopped by Windows.
-
----
-
-# Running with the Fake OMAX Server
-
-The `FakeOmax` project can be used to simulate the OMAX machine during development.
-
-Start the fake server first:
-
-```powershell
-dotnet run --project FakeOmax/FakeOmax
-```
-
-Then start the collector:
-
-```powershell
+``` powershell
+$env:DOTNET_ENVIRONMENT = "Development"
 dotnet run --project OMAXRuntimeCollector
 ```
 
-FakeOmax listens on the configured TCP endpoint, normally:
+The application loads and validates the selected configuration, connects
+to the configured OMAX endpoint, and begins monitoring machine activity.
+Without `DOTNET_ENVIRONMENT=Development`, it selects `appsettings.json`
+instead.
 
-```text
-localhost:5000
+To stop the application when running interactively, press:
+
+``` text
+Ctrl+C
 ```
+
+When deployed as a Windows Service, the application is instead started
+and stopped by Windows.
+
+------------------------------------------------------------------------
+
+# Running with the Fake OMAX Server
+
+The `FakeOmax` project simulates the OMAX machine's TCP stream for local
+integration testing. No real OMAX machine is required.
+
+1.  Make sure `OMAXRuntimeCollector/appsettings.Development.json` exists
+    and contains the desired `Omax.Port`.
+
+2.  Start FakeOmax:
+
+    ``` bash
+    dotnet run --project FakeOmax/FakeOmax
+    ```
+
+3.  Start the collector with the Development environment enabled, using
+    the command for your shell from [Running the
+    Application](#running-the-application).
+
+FakeOmax reads `Omax.Port` from the collector project's
+`appsettings.Development.json` and listens on that TCP port. The
+collector reads the same setting, so the port only needs to be
+configured once.
+
+**Keep the FakeOmax TCP port separate from the IDE launch profile's
+`applicationUrl`.** The latter is a browser/launch URL, not the
+MTConnect TCP endpoint. If the launch profile opens a browser at the
+same port that FakeOmax is listening on, the browser can make an
+unexpected connection to the simulator.
+
+If a connection fails or the port appears to be occupied, choose another
+unused TCP port and update `Omax.Port` in
+`appsettings.Development.json`. The development file is local and
+ignored by Git, so it must be created separately on each development
+machine.
 
 The fake server reads the test stream from:
 
-```text
+``` text
 stream-test2.txt
 ```
 
 The first replay starts automatically when the collector connects.
 
-After the stream finishes, FakeOmax displays the expected cumulative runtime and waits for another command:
+After the stream finishes, FakeOmax displays the expected cumulative
+runtime and waits for another command:
 
-```text
+``` text
 Press ENTER to send again, or Q then ENTER to stop.
 ```
 
@@ -407,7 +565,7 @@ Press ENTER to send again, or Q then ENTER to stop.
 
 For the current `stream-test2.txt`, one replay represents:
 
-```text
+``` text
 Expected runtime:
   Morning:   03:31:11
   Afternoon: 00:30:48
@@ -415,7 +573,7 @@ Expected runtime:
 
 A second replay accumulates another copy of those values:
 
-```text
+``` text
 Expected runtime:
   Morning:   07:02:22
   Afternoon: 01:01:36
@@ -423,58 +581,65 @@ Expected runtime:
 
 A third replay results in:
 
-```text
+``` text
 Expected runtime:
   Morning:   10:33:33
   Afternoon: 01:32:24
 ```
 
-The expected runtime values are predetermined for the test stream. FakeOmax does not duplicate the collector's runtime-calculation logic.
+The expected runtime values are predetermined for the test stream.
+FakeOmax does not duplicate the collector's runtime-calculation logic.
 
 ### Timestamp handling
 
 The original test files contain fixed historical dates.
 
-FakeOmax automatically replaces the date portion of each valid timestamp with the current date before sending the line to the collector.
+FakeOmax automatically replaces the date portion of each valid timestamp
+with the current date before sending the line to the collector.
 
 For example:
 
-```text
+``` text
 2026-08-28T14:00:08.0179|mode|AUTOMATIC|execution|ACTIVE
 ```
 
 is sent as:
 
-```text
+``` text
 [current-date]T14:00:08.0179|mode|AUTOMATIC|execution|ACTIVE
 ```
 
-Only the date is changed. The time, fractional seconds, and remaining machine data are preserved.
+Only the date is changed. The time, fractional seconds, and remaining
+machine data are preserved.
 
-This prevents the test stream from generating runtime for an outdated date and removes the need to manually edit the test files each day.
+This prevents the test stream from generating runtime for an outdated
+date and removes the need to manually edit the test files each day.
 
 ### FakeOmax commands
 
 After each replay:
 
-* **Enter + Enter** — replay the test stream.
-* **Q + Enter** — stop FakeOmax completely.
+-   **Enter + Enter** --- replay the test stream.
+-   **Q + Enter** --- stop FakeOmax completely.
 
-The `Q` command requires Enter because FakeOmax uses `Console.ReadLine()` to receive console commands.
+The `Q` command requires Enter because FakeOmax uses
+`Console.ReadLine()` to receive console commands.
 
-If the collector disconnects unexpectedly, FakeOmax closes the current client connection and returns to its connection-waiting state.
+If the collector disconnects unexpectedly, FakeOmax closes the current
+client connection and returns to its connection-waiting state.
 
----
+------------------------------------------------------------------------
 
 # Testing
 
 Run all automated tests from the repository root:
 
-```powershell
+``` powershell
 dotnet test OMAXRuntimeCollector/OMAXRuntimeCollector.sln
 ```
 
-The test suite is organized to mirror the main application's component structure.
+The test suite is organized to mirror the main application's component
+structure.
 
 ## Runtime calculation
 
@@ -497,7 +662,6 @@ The `Runtime/Tracker` tests verify:
 
 * `ACTIVE` execution events
 * Supported ending execution states:
-
     * `STOPPED`
     * `INTERRUPTED`
     * `OPTIONAL_STOP`
@@ -532,11 +696,13 @@ The writer tests verify:
 * Concurrent writer behavior
 * Windows hidden lock-file behavior
 
-The local and shared writers are tested independently while sharing the common CSV implementation through `RuntimeCsvWriterBase`.
+The local and shared writers are tested independently while sharing the
+common CSV implementation through `RuntimeCsvWriterBase`.
 
 ## Writer failure handling
 
-Runtime writers declare whether they are **critical** through the `IRuntimeWriter.IsCritical` property.
+Runtime writers declare whether they are **critical** through the
+`IRuntimeWriter.IsCritical` property.
 
 The tests verify that:
 
@@ -545,13 +711,16 @@ The tests verify that:
 * A failed non-critical writer does not prevent other writers from running.
 * A failed critical writer prevents subsequent writers from being called.
 
-The local CSV writer is currently critical because it is the authoritative local persistence mechanism.
+The local CSV writer is currently critical because it is the
+authoritative local persistence mechanism.
 
-The shared CSV writer is non-critical because it is a secondary centralized copy.
+The shared CSV writer is non-critical because it is a secondary
+centralized copy.
 
 ## OMAX connection
 
-`OmaxClientTests` uses a real local `TcpListener` to test the client's networking behavior without requiring a real OMAX machine.
+`OmaxClientTests` uses a real local `TcpListener` to test the client's
+networking behavior without requiring a real OMAX machine.
 
 The tests verify:
 
@@ -562,7 +731,8 @@ The tests verify:
 * Reconnecting after a connection is lost.
 * Processing runtime data received after reconnection.
 
-Using a local TCP listener allows the actual networking code to be exercised rather than replacing the TCP layer with a mock.
+Using a local TCP listener allows the actual networking code to be
+exercised rather than replacing the TCP layer with a mock.
 
 ## Configuration
 
@@ -581,7 +751,8 @@ Using a local TCP listener allows the actual networking code to be exercised rat
 
 ## Runtime Collector Worker
 
-`RuntimeCollectorWorkerTests` verifies the Worker-level startup behavior.
+`RuntimeCollectorWorkerTests` verifies the Worker-level startup
+behavior.
 
 The tests cover:
 
@@ -590,9 +761,15 @@ The tests cover:
 * Valid configuration successfully starting the collector
 * Configuration loading and validation before attempting an OMAX connection
 
-The valid configuration test uses a temporary configuration file and a local TCP listener. Successfully accepting a connection from the Worker demonstrates that the Worker was able to load and validate the configuration, construct its dependencies, start the OMAX client, and connect to the configured endpoint.
+The valid configuration test uses a temporary configuration file and a
+local TCP listener. Successfully accepting a connection from the Worker
+demonstrates that the Worker was able to load and validate the
+configuration, construct its dependencies, start the OMAX client, and
+connect to the configured endpoint.
 
-The Worker accepts an optional configuration-file path so that tests can provide isolated temporary configuration files without modifying the application's published `appsettings.json`.
+The Worker accepts an optional configuration-file path so that tests can
+provide isolated temporary configuration files without modifying the
+application's published `appsettings.json`.
 
 ## Application logging
 
@@ -602,49 +779,57 @@ The Worker accepts an optional configuration-file path so that tests can provide
 * Console logging works when `TestMode` is enabled.
 * Log files roll over when the configured file-size limit is exceeded.
 
-The logging tests use a shared xUnit collection for console-related tests because `Console.Out` is process-global and should not be modified concurrently by multiple tests.
+The logging tests use a shared xUnit collection for console-related
+tests because `Console.Out` is process-global and should not be modified
+concurrently by multiple tests.
 
-The production logger uses daily rolling with a 10 MB file-size limit and retains up to 30 log files.
+The production logger uses daily rolling with a 10 MB file-size limit
+and retains up to 30 log files.
 
 All automated tests should pass before publishing a new version.
 
----
+------------------------------------------------------------------------
 
 # Building the Executable
 
-The application can be published as a self-contained executable so that the target computer does not need the .NET runtime installed.
+The application can be published as a self-contained executable so that
+the target computer does not need the .NET runtime installed.
 
-For the current OMAX environment, the application must be published for **32-bit Windows (`win-x86`)**:
+For the current OMAX environment, the application must be published for
+**32-bit Windows (`win-x86`)**:
 
-```powershell
+``` powershell
 dotnet publish -c Release -r win-x86 --self-contained true
 ```
 
 The published files are placed under:
 
-```text
+``` text
 OMAXRuntimeCollector/bin/Release/net9.0/win-x86/publish/
 ```
 
-The published directory contains the executable, configuration file, and required runtime files.
+The published directory contains the executable, configuration file, and
+required runtime files.
 
-Before installing the application as a Windows Service, copy the published files to a permanent directory on the target computer.
+Before installing the application as a Windows Service, copy the
+published files to a permanent directory on the target computer.
 
 For example:
 
-```text
+``` text
 C:\OMAXRuntimeCollector
 ```
 
----
+------------------------------------------------------------------------
 
 # PowerShell Scripts
 
-The project includes PowerShell scripts to simplify publishing and Windows Service deployment.
+The project includes PowerShell scripts to simplify publishing and
+Windows Service deployment.
 
 The scripts are located in:
 
-```text
+``` text
 OMAXRuntimeCollector/scripts/
 ```
 
@@ -660,37 +845,39 @@ They are:
 
 From the `scripts` directory:
 
-```powershell
+``` powershell
 .\publish.ps1
 ```
 
 The script publishes the application using:
 
-```powershell
+``` powershell
 dotnet publish -c Release -r win-x86 --self-contained true
 ```
 
 The resulting files are placed in:
 
-```text
+``` text
 OMAXRuntimeCollector/bin/Release/net9.0/win-x86/publish/
 ```
 
-The published files can then be copied to the desired installation directory on the target computer.
+The published files can then be copied to the desired installation
+directory on the target computer.
 
 For example:
 
-```text
+``` text
 C:\OMAXRuntimeCollector
 ```
 
 ## Install the Windows Service
 
-After copying the published files to the target installation directory, open **PowerShell as Administrator**.
+After copying the published files to the target installation directory,
+open **PowerShell as Administrator**.
 
 Run:
 
-```powershell
+``` powershell
 .\install-service.ps1 -InstallPath "C:\OMAXRuntimeCollector"
 ```
 
@@ -712,9 +899,10 @@ The service is created with:
 * **Display name:** `OMAX Runtime Collector`
 * **Startup type:** Automatic
 
-The script also configures three automatic restart attempts with a five-second delay:
+The script also configures three automatic restart attempts with a
+five-second delay:
 
-```text
+``` text
 First failure  → restart after 5 seconds
 Second failure → restart after 5 seconds
 Third failure  → restart after 5 seconds
@@ -724,9 +912,10 @@ The failure count is reset after 24 hours.
 
 ## Uninstall the Windows Service
 
-To remove the service and its installation files, open **PowerShell as Administrator** and run:
+To remove the service and its installation files, open **PowerShell as
+Administrator** and run:
 
-```powershell
+``` powershell
 .\uninstall-service.ps1 -InstallPath "C:\OMAXRuntimeCollector"
 ```
 
@@ -737,19 +926,24 @@ The uninstall script:
 3. Removes the Windows Service.
 4. Removes the specified installation directory.
 
-The script does not affect the project's source files or published files stored elsewhere.
+The script does not affect the project's source files or published files
+stored elsewhere.
 
 ## Script Requirements
 
-The installation and uninstallation scripts require an **elevated PowerShell session** because creating, removing, and configuring Windows Services requires administrator privileges.
+The installation and uninstallation scripts require an **elevated
+PowerShell session** because creating, removing, and configuring Windows
+Services requires administrator privileges.
 
-The publish script does not require administrator privileges when publishing from a normal development environment.
+The publish script does not require administrator privileges when
+publishing from a normal development environment.
 
----
+------------------------------------------------------------------------
 
 # Windows Service Deployment
 
-The collector can be installed as a Windows Service so that it runs automatically in the background and starts with Windows.
+The collector can be installed as a Windows Service so that it runs
+automatically in the background and starts with Windows.
 
 The recommended deployment process is:
 
@@ -757,7 +951,7 @@ The recommended deployment process is:
 
 From the repository root:
 
-```powershell
+``` powershell
 dotnet test
 ```
 
@@ -767,7 +961,7 @@ Make sure all tests pass before publishing.
 
 From the `OMAXRuntimeCollector/scripts` directory:
 
-```powershell
+``` powershell
 .\publish.ps1
 ```
 
@@ -775,7 +969,7 @@ From the `OMAXRuntimeCollector/scripts` directory:
 
 Copy the contents of:
 
-```text
+``` text
 OMAXRuntimeCollector/bin/Release/net9.0/win-x86/publish/
 ```
 
@@ -783,13 +977,13 @@ to the target installation directory.
 
 For example:
 
-```text
+``` text
 C:\OMAXRuntimeCollector
 ```
 
 Make sure the directory contains at least:
 
-```text
+``` text
 OMAXRuntimeCollector.exe
 appsettings.json
 ```
@@ -802,7 +996,7 @@ Before starting the service, verify `appsettings.json`.
 
 For a production installation, `TestMode` should normally be:
 
-```json
+``` json
 "TestMode": false
 ```
 
@@ -822,7 +1016,7 @@ Each OMAX machine should have a unique `MachineId`.
 
 Open **PowerShell as Administrator** and run:
 
-```powershell
+``` powershell
 .\install-service.ps1 -InstallPath "C:\OMAXRuntimeCollector"
 ```
 
@@ -832,19 +1026,19 @@ The script creates and starts the service automatically.
 
 The service should appear in **Services (`services.msc`)** as:
 
-```text
+``` text
 OMAX Runtime Collector
 ```
 
 with a status of:
 
-```text
+``` text
 Running
 ```
 
 The service can also be checked from PowerShell:
 
-```powershell
+``` powershell
 Get-Service OMAXRuntimeCollector
 ```
 
@@ -860,17 +1054,21 @@ After Windows starts:
 4. Check the latest application log file for a new startup entry.
 5. Verify that the collector attempts to connect to the configured OMAX endpoint.
 
-The collector should start automatically without manually launching the executable.
+The collector should start automatically without manually launching the
+executable.
 
-Automatic startup has been successfully validated during development testing, including after normal Windows restarts and shutdown/power-on cycles when the service was left running before shutdown.
+Automatic startup has been successfully validated during development
+testing, including after normal Windows restarts and shutdown/power-on
+cycles when the service was left running before shutdown.
 
 ## 8. Test service recovery
 
-To verify that Windows can recover from an unexpected collector process failure:
+To verify that Windows can recover from an unexpected collector process
+failure:
 
 First find the running collector process:
 
-```powershell
+``` powershell
 Get-Process OMAXRuntimeCollector
 ```
 
@@ -878,58 +1076,66 @@ Note the process ID (`Id`).
 
 Then terminate the process:
 
-```powershell
+``` powershell
 Stop-Process -Id <PROCESS_ID> -Force
 ```
 
 For example:
 
-```powershell
+``` powershell
 Stop-Process -Id 22704 -Force
 ```
 
-This simulates an unexpected application failure rather than a normal service shutdown.
+This simulates an unexpected application failure rather than a normal
+service shutdown.
 
-Windows should detect the failure and restart the service according to the configured recovery policy.
+Windows should detect the failure and restart the service according to
+the configured recovery policy.
 
-A new startup sequence should subsequently appear in the application log.
+A new startup sequence should subsequently appear in the application
+log.
 
 ## 9. Stop the service
 
 To manually stop the service:
 
-```powershell
+``` powershell
 sc.exe stop OMAXRuntimeCollector
 ```
 
 Alternatively, the service can be stopped from `services.msc`.
 
-A manually stopped service may remain stopped after a subsequent reboot. For automatic-startup testing, the service should be running before shutting down the computer.
+A manually stopped service may remain stopped after a subsequent reboot.
+For automatic-startup testing, the service should be running before
+shutting down the computer.
 
 ## 10. Remove the service
 
-The recommended way to remove the service and its installation directory is:
+The recommended way to remove the service and its installation directory
+is:
 
-```powershell
+``` powershell
 .\uninstall-service.ps1 -InstallPath "C:\OMAXRuntimeCollector"
 ```
 
 Alternatively, the service can be removed manually:
 
-```powershell
+``` powershell
 sc.exe stop OMAXRuntimeCollector
 sc.exe delete OMAXRuntimeCollector
 ```
 
-The manual `sc.exe` commands remove the service but do not automatically delete the application files.
+The manual `sc.exe` commands remove the service but do not automatically
+delete the application files.
 
----
+------------------------------------------------------------------------
 
 # Runtime Output
 
-The collector produces CSV data containing one row per **machine per day**:
+The collector produces CSV data containing one row per **machine per
+day**:
 
-```csv
+``` csv
 MachineId,Date,MorningRuntime,AfternoonRuntime
 OMAX-01,2026-09-17,03:31:11,00:30:48
 OMAX-02,2026-09-17,02:14:32,01:21:05
@@ -937,9 +1143,11 @@ OMAX-02,2026-09-17,02:14:32,01:21:05
 
 The `MachineId` identifies which OMAX machine produced the data.
 
-The morning and afternoon values represent the amount of time the machine was actively executing during each accounting period.
+The morning and afternoon values represent the amount of time the
+machine was actively executing during each accounting period.
 
-The collector updates the existing row when runtime for the same machine and date is saved.
+The collector updates the existing row when runtime for the same machine
+and date is saved.
 
 ## Local Runtime CSV
 
@@ -947,17 +1155,18 @@ Each OMAX computer maintains its own local runtime CSV.
 
 The default location is:
 
-```text
+``` text
 %ProgramData%\OMAXRuntimeCollector\runtime.csv
 ```
 
-This local CSV is considered the authoritative persistence for that collector.
+This local CSV is considered the authoritative persistence for that
+collector.
 
 ## Shared Runtime CSV
 
 The collectors can also write to a centralized shared CSV:
 
-```text
+``` text
 P:\OMAXRuntimeCollector\runtime.csv
 ```
 
@@ -965,7 +1174,7 @@ The shared file contains rows from multiple machines.
 
 For example:
 
-```csv
+``` csv
 MachineId,Date,MorningRuntime,AfternoonRuntime
 OMAX-01,2026-09-17,03:31:11,00:30:48
 OMAX-02,2026-09-17,02:14:32,01:21:05
@@ -974,19 +1183,26 @@ OMAX-03,2026-09-17,04:02:19,01:07:44
 
 The shared writer uses a companion lock file:
 
-```text
+``` text
 P:\OMAXRuntimeCollector\runtime.csv.lock
 ```
 
-The lock prevents multiple collectors from simultaneously modifying the shared CSV.
+The lock prevents multiple collectors from simultaneously modifying the
+shared CSV.
 
-The lock is implemented using an open file handle with exclusive access. The presence of the `.lock` file itself does not indicate that the file is currently locked; the lock is held by the active file handle.
+The lock is implemented using an open file handle with exclusive access.
+The presence of the `.lock` file itself does not indicate that the file
+is currently locked; the lock is held by the active file handle.
 
-The shared writer waits for an existing lock for a configurable amount of time. If the lock cannot be acquired within the configured timeout, the write fails and the error is reported to the runtime tracker.
+The shared writer waits for an existing lock for a configurable amount
+of time. If the lock cannot be acquired within the configured timeout,
+the write fails and the error is reported to the runtime tracker.
 
-The shared writer is **non-critical**. A failure to access the network share does not stop the collector or prevent local runtime persistence.
+The shared writer is **non-critical**. A failure to access the network
+share does not stop the collector or prevent local runtime persistence.
 
-The actual multi-computer SMB/network-share integration still needs to be validated on the production network.
+The actual multi-computer SMB/network-share integration still needs to
+be validated on the production network.
 
 ## Application Log
 
@@ -994,13 +1210,17 @@ The application log is stored under `%ProgramData%` by default.
 
 The base path configured in `appsettings.json` is:
 
-```text
+``` text
 %ProgramData%\OMAXRuntimeCollector\collector.log
 ```
 
-The logger uses **daily rolling** and a **10 MB file-size limit**. If the log exceeds the size limit during a day, an additional log file is created for that day.
+The logger uses **daily rolling** and a **10 MB file-size limit**. If
+the log exceeds the size limit during a day, an additional log file is
+created for that day.
 
-Up to **30 log files** are retained. This retention limit counts log files rather than calendar days because a single day can produce more than one file if the 10 MB size limit is exceeded.
+Up to **30 log files** are retained. This retention limit counts log
+files rather than calendar days because a single day can produce more
+than one file if the 10 MB size limit is exceeded.
 
 Startup diagnostics include information such as:
 
@@ -1012,13 +1232,14 @@ Startup diagnostics include information such as:
 * Shared CSV path
 * Log path
 
----
+------------------------------------------------------------------------
 
 # Architecture
 
-The application separates connection handling, runtime calculation, state tracking, and persistence into dedicated components.
+The application separates connection handling, runtime calculation,
+state tracking, and persistence into dedicated components.
 
-```text
+``` text
                          Windows Service
                               │
                               ▼
@@ -1061,9 +1282,14 @@ It manages:
 * OMAX client lifetime
 * Application shutdown
 
-The Worker accepts an optional configuration-file path internally so that automated tests can provide isolated temporary configurations without modifying the production `appsettings.json`.
+The Worker accepts an optional configuration-file path internally so
+that automated tests can provide isolated temporary configurations
+without modifying the production `appsettings.json`.
 
-When no custom path is supplied, the Worker uses the `appsettings.json` file located beside the application.
+When no custom path is supplied, the Worker uses the `appsettings.json`
+file located beside the application. The application entry point
+normally passes the selected path explicitly, based on
+`DOTNET_ENVIRONMENT`.
 
 ## OmaxClient
 
@@ -1078,7 +1304,8 @@ It:
 
 ## RuntimeTracker
 
-Interprets machine execution states and maintains the current runtime state.
+Interprets machine execution states and maintains the current runtime
+state.
 
 It:
 
@@ -1090,7 +1317,8 @@ It:
 * Passes execution intervals to `RuntimeCalculator`.
 * Sends completed runtime periods to the configured writers.
 
-RuntimeTracker operates against the `IRuntimeWriter` abstraction rather than knowing which storage systems are being used.
+RuntimeTracker operates against the `IRuntimeWriter` abstraction rather
+than knowing which storage systems are being used.
 
 ## RuntimeCalculator
 
@@ -1098,12 +1326,13 @@ Contains the runtime calculation logic.
 
 It determines how an execution interval should be divided between:
 
-```text
+``` text
 05:00 → 14:00  Morning
 14:00 → 00:00  Afternoon
 ```
 
-This keeps the calculation logic independent from network communication and file storage.
+This keeps the calculation logic independent from network communication
+and file storage.
 
 ## IRuntimeWriter
 
@@ -1121,19 +1350,24 @@ The `IsCritical` property determines how a storage failure is handled.
 
 A critical writer failure is propagated to the caller.
 
-The current local CSV writer is critical because local storage is the authoritative persistence mechanism.
+The current local CSV writer is critical because local storage is the
+authoritative persistence mechanism.
 
 ### Non-critical writer
 
 A non-critical writer failure is logged but does not stop the collector.
 
-The current shared CSV writer is non-critical because the shared CSV is a secondary centralized copy.
+The current shared CSV writer is non-critical because the shared CSV is
+a secondary centralized copy.
 
-This abstraction allows additional persistence mechanisms to be added in the future without requiring `RuntimeTracker` to know their concrete types.
+This abstraction allows additional persistence mechanisms to be added in
+the future without requiring `RuntimeTracker` to know their concrete
+types.
 
 ## RuntimeCsvWriterBase
 
-Contains the common CSV reading, updating, and writing logic shared by the local and shared CSV writers.
+Contains the common CSV reading, updating, and writing logic shared by
+the local and shared CSV writers.
 
 It:
 
@@ -1150,7 +1384,7 @@ Writes runtime data to the local CSV file.
 
 It is configured as:
 
-```text
+``` text
 IsCritical = true
 ```
 
@@ -1160,21 +1394,24 @@ Writes runtime data to the shared network CSV.
 
 It is configured as:
 
-```text
+``` text
 IsCritical = false
 ```
 
-It uses a `.lock` file with exclusive file access to coordinate concurrent writes from multiple collectors.
+It uses a `.lock` file with exclusive file access to coordinate
+concurrent writes from multiple collectors.
 
 ## AppLogger
 
 Provides application logging through Serilog.
 
-It writes application messages to rolling log files and, when `TestMode` is enabled, also writes them to the console.
+It writes application messages to rolling log files and, when `TestMode`
+is enabled, also writes them to the console.
 
-Log files use daily rolling with a 10 MB size limit and a 30-file retention limit.
+Log files use daily rolling with a 10 MB size limit and a 30-file
+retention limit.
 
----
+------------------------------------------------------------------------
 
 # Reliability
 
@@ -1182,9 +1419,10 @@ The collector has several levels of recovery and failure handling.
 
 ## OMAX connection recovery
 
-If the OMAX endpoint is unavailable, the collector remains running and periodically attempts to reconnect.
+If the OMAX endpoint is unavailable, the collector remains running and
+periodically attempts to reconnect.
 
-```text
+``` text
 OMAX unavailable
       │
       ▼
@@ -1199,29 +1437,35 @@ Try again
       └───────► Repeat until connection succeeds
 ```
 
-If the connection is lost while an execution is active, the current execution is discarded.
+If the connection is lost while an execution is active, the current
+execution is discarded.
 
-The collector waits for a new `ACTIVE` event before starting a new execution interval.
+The collector waits for a new `ACTIVE` event before starting a new
+execution interval.
 
-This prevents the collector from inventing runtime during a period where the machine's state cannot be confirmed.
+This prevents the collector from inventing runtime during a period where
+the machine's state cannot be confirmed.
 
 ## Local storage failure
 
 The local CSV is considered critical.
 
-If the local writer fails, the exception is propagated rather than silently ignored.
+If the local writer fails, the exception is propagated rather than
+silently ignored.
 
-This prevents the collector from treating runtime as successfully persisted when the authoritative local storage operation failed.
+This prevents the collector from treating runtime as successfully
+persisted when the authoritative local storage operation failed.
 
 ## Shared storage failure
 
 The shared CSV is considered non-critical.
 
-If the network drive is unavailable, the shared writer failure is logged and the collector continues operating.
+If the network drive is unavailable, the shared writer failure is logged
+and the collector continues operating.
 
 The local CSV remains available as the authoritative local record.
 
-```text
+``` text
 Shared storage unavailable
           │
           ▼
@@ -1239,15 +1483,20 @@ Local storage remains available
 
 ## Logging failure
 
-Application logging is intended to provide diagnostics without affecting runtime tracking logic.
+Application logging is intended to provide diagnostics without affecting
+runtime tracking logic.
 
-The logger manages rolling log files so that application logs do not grow indefinitely. The production configuration limits individual files to 10 MB and retains up to 30 log files.
+The logger manages rolling log files so that application logs do not
+grow indefinitely. The production configuration limits individual files
+to 10 MB and retains up to 30 log files.
 
 ## Windows Service recovery
 
-If the collector process itself unexpectedly terminates, Windows Service Control Manager can restart it using the configured service recovery actions.
+If the collector process itself unexpectedly terminates, Windows Service
+Control Manager can restart it using the configured service recovery
+actions.
 
-```text
+``` text
 Collector process fails
           │
           ▼
@@ -1263,17 +1512,23 @@ Collector starts again
 Normal connection/retry logic resumes
 ```
 
-The configured recovery policy allows three restart attempts with a five-second delay between attempts. The failure count resets after 24 hours.
+The configured recovery policy allows three restart attempts with a
+five-second delay between attempts. The failure count resets after 24
+hours.
 
-These Windows Service recovery behaviors have been tested successfully in the development environment.
+These Windows Service recovery behaviors have been tested successfully
+in the development environment.
 
----
+------------------------------------------------------------------------
 
 # Current Project Status
 
-The main Windows Service implementation is complete, and the collector has undergone extensive automated and development-environment validation.
+The main Windows Service implementation is complete, and the collector
+has undergone extensive automated and development-environment
+validation.
 
-The following have been validated through automated tests or development-environment testing:
+The following have been validated through automated tests or
+development-environment testing:
 
 * Runtime calculation
 * Multiple executions
@@ -1310,22 +1565,31 @@ The following have been validated through automated tests or development-environ
 * FakeOmax cumulative expected runtime display
 * FakeOmax automatic timestamp date replacement
 
-The automated test suite now covers the application from individual calculation components through to higher-level Worker and TCP connection behavior. The OMAX client tests exercise the actual TCP communication layer using a local listener, while Worker tests verify configuration loading and startup using isolated temporary configuration files.
+The automated test suite now covers the application from individual
+calculation components through to higher-level Worker and TCP connection
+behavior. The OMAX client tests exercise the actual TCP communication
+layer using a local listener, while Worker tests verify configuration
+loading and startup using isolated temporary configuration files.
 
-The development FakeOmax stream has also been used to verify the collector's handling of multiple cutting executions and an execution crossing the 14:00 boundary.
+The development FakeOmax stream has also been used to verify the
+collector's handling of multiple cutting executions and an execution
+crossing the 14:00 boundary.
 
 For the current `stream-test2.txt` test scenario, one replay produces:
 
-```text
+``` text
 Morning:   03:31:11
 Afternoon: 00:30:48
 ```
 
-The actual 14:00 boundary was successfully observed during development testing, with the expected morning runtime written to both the local CSV and the shared test CSV.
+The actual 14:00 boundary was successfully observed during development
+testing, with the expected morning runtime written to both the local CSV
+and the shared test CSV.
 
 ## Remaining production validation
 
-The next major validation stage is testing the collector on the real OMAX machines and production network.
+The next major validation stage is testing the collector on the real
+OMAX machines and production network.
 
 This includes:
 
@@ -1341,9 +1605,13 @@ This includes:
 * Confirming automatic service startup on the real OMAX computers after a full shutdown and power-on.
 * Confirming runtime persistence at the 14:00 and midnight boundaries during real machine operation.
 
-The shared network integration has been tested through automated unit tests and development-environment testing, including locking and concurrent writer scenarios, but the actual multi-computer network-share behavior has not yet been validated across the production OMAX computers.
+The shared network integration has been tested through automated unit
+tests and development-environment testing, including locking and
+concurrent writer scenarios, but the actual multi-computer network-share
+behavior has not yet been validated across the production OMAX
+computers.
 
----
+------------------------------------------------------------------------
 
 # License
 
